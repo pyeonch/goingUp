@@ -6,10 +6,12 @@ import lombok.extern.slf4j.Slf4j;
 import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.Member;
+import net.dv8tion.jda.api.entities.Message;
 import net.dv8tion.jda.api.entities.Role;
 import net.dv8tion.jda.api.entities.channel.Channel;
 import net.dv8tion.jda.api.entities.channel.concrete.Category;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
+import net.dv8tion.jda.api.entities.channel.concrete.VoiceChannel;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
@@ -21,6 +23,8 @@ import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static GoingUp.Consts.*;
 
@@ -88,8 +92,10 @@ public class GoingUp extends ListenerAdapter {
 
                 //플레이어 참가 버튼
                 if(buttonId.startsWith("player_")){
+                    event.deferEdit().queue();
+
                     String playerNumber = buttonId.replace("player_", "");
-                    Role spectatorRole = guild.getRoleById(ROLE_SPECTATOR);
+                    Role spectatorRole = guild.getRoleById(ROLE_SPECTATOR_ID);
 
                     if (member != null && spectatorRole != null) {
                         //이미 참여신청함
@@ -118,8 +124,8 @@ public class GoingUp extends ListenerAdapter {
                                 event.getMessage().editMessageComponents(updatedRows).queue();
 
                                 //개인지갑 채널 생성
-                                Category category = event.getGuild().getCategoryById(CATE_WALLET);
-                                Role adminRole = event.getGuild().getRoleById(ROLE_ADMIN);
+                                Category category = event.getGuild().getCategoryById(CATE_WALLET_ID);
+                                Role adminRole = event.getGuild().getRoleById(ROLE_ADMIN_ID);
 
                                 category.createTextChannel(member.getEffectiveName()) // 사용자 이름으로 텍스트 채널 생성
                                         .addPermissionOverride(member, EnumSet.of(Permission.VIEW_CHANNEL, Permission.MESSAGE_SEND), null) // 사용자에게 보기 및 쓰기 권한
@@ -136,7 +142,9 @@ public class GoingUp extends ListenerAdapter {
                                             loggingChannel(guild,"오류: 개인 지갑 채널을 생성하는 데 실패했습니다.");
                                         });
 
-                                event.reply("참가 완료").setEphemeral(true).queue();
+                                textChannel.sendMessage("["+member.getEffectiveName() + "]참가 완료!").queue(message -> {
+                                    editMsgAndErase(message, null);
+                                });
                                 loggingChannel(guild, "["+member.getEffectiveName()+"] 참가 완료");
                             }
                         }
@@ -149,6 +157,7 @@ public class GoingUp extends ListenerAdapter {
 
     //운영자콘솔 버튼 이벤트
     private void adminConsoleButtonInteract(ButtonInteractionEvent event, String buttonId, TextChannel textChannel) {
+        event.deferEdit().queue();
         switch (buttonId) {
             case "join_player":
                 joinPlayerButtons(event);
@@ -164,6 +173,7 @@ public class GoingUp extends ListenerAdapter {
             case "rest":
                 break;
             case "call_player":
+                movePlayerToMainChannel(textChannel);
                 break;
             case "reset_game":
                 break;
@@ -182,6 +192,65 @@ public class GoingUp extends ListenerAdapter {
                 ).addActionRow(
                         Button.primary("player_6","플레이어6"))
                 .queue();
+    }
+
+    private void movePlayerToMainChannel(TextChannel channel) {
+        Guild guild = channel.getGuild();
+
+        // 이동 대상 멤버 수 추적
+        int totalMembers = joinUsers.size();
+        AtomicInteger completedCount = new AtomicInteger(0);
+
+        channel.sendMessage("이동 중...").queue(message -> {
+            if(joinUsers.keySet().isEmpty()) {
+                editMsgAndErase(message, "이동할 인원이 없습니다!");
+            }
+
+            for (Member member : joinUsers.keySet()) {
+                if (member.getVoiceState() == null || member.getVoiceState().getChannel() == null) {
+                    guild.retrieveMemberById(member.getId()).queue(refreshedMember -> {
+                        handleMemberVoiceChannel(channel, refreshedMember, guild);
+                    });
+                } else {
+                    handleMemberVoiceChannel(channel, member, guild);
+                }
+                if(totalMembers == completedCount.incrementAndGet()) {
+                    editMsgAndErase(message, "이동 완료!");
+                }
+            }
+        });
+
+    }
+
+    private void handleMemberVoiceChannel(TextChannel channel, Member member, Guild guild) {
+        VoiceChannel mainChannel = guild.getVoiceChannelById(VC_MAIN_ID);
+
+        if( member.getVoiceState() == null || member.getVoiceState().getChannel() == null) {
+            loggingChannel(guild, "위험: ["+member.getEffectiveName()+"]님은 음성채널에 있지 않습니다.");
+            return;
+        }
+
+        if(mainChannel != null) {
+            guild.moveVoiceMember(member, mainChannel).queue(
+                    success -> {},
+                    error -> {
+                        loggingChannel(guild, "오류: 알 수 없는 이유로 ["+member.getEffectiveName()+"]님을 이동시키지 못했습니다.");
+                    }
+            );
+        }
+
+    }
+
+    //메세지 수정 및 3초후 삭제
+    //replytext에 null이 들어오면 미수정후 3초후 삭제
+    private void editMsgAndErase(Message message, String replyText) {
+        if(replyText == null) {
+            message.delete().queueAfter(3, TimeUnit.SECONDS);
+        }else {
+            message.editMessage(replyText).queue(editedMessage -> {
+                editedMessage.delete().queueAfter(3, TimeUnit.SECONDS);
+            });
+        }
     }
 
     // 로그 채널에 로그 기록
