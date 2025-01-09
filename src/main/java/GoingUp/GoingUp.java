@@ -34,7 +34,7 @@ public class GoingUp extends ListenerAdapter {
 
     private final HashMap<Member, Players> joinUsers = new HashMap<>();
     public int currentRound = 1;
-    public String currentPhase = "시작 전";
+    public Phase currentPhase = Phase.READY;
     public String ADMIN_CONSOLE_STATUS_MESSAGE_ID = "";
 
     @Override
@@ -57,7 +57,7 @@ public class GoingUp extends ListenerAdapter {
                 Button.secondary("join_player","플레이어 모집"),
                 Button.success("game_start","게임 시작")
         ).addActionRow(
-                Button.primary("buy_sell","구매/판매"),
+                Button.primary("start_market","장오픈"),
                 Button.primary("close_market","장마감"),
                 Button.primary("select_news","기사선택"),
                 Button.primary("rest","휴식")
@@ -68,11 +68,11 @@ public class GoingUp extends ListenerAdapter {
 
         if(ADMIN_CONSOLE_STATUS_MESSAGE_ID.isEmpty()) {
             textChannel.sendMessage(">>> 현재 라운드 : " + currentRound + "\n" +
-                    "현재 페이즈 : " + currentPhase).queue(message -> ADMIN_CONSOLE_STATUS_MESSAGE_ID = message.getId());
+                    "현재 페이즈 : " + currentPhase.getDesc()).queue(message -> ADMIN_CONSOLE_STATUS_MESSAGE_ID = message.getId());
         } else {
             textChannel.retrieveMessageById(ADMIN_CONSOLE_STATUS_MESSAGE_ID).queue(message ->
                     message.editMessage(">>> 현재 라운드 : " + currentRound + "\n" +
-                            "현재 페이즈 : " + currentPhase).queue()
+                            "현재 페이즈 : " + currentPhase.getDesc()).queue()
             );
 
         }
@@ -162,7 +162,7 @@ public class GoingUp extends ListenerAdapter {
                 break;
             case "game_start":
                 break;
-            case "buy_sell":
+            case "start_market":
                 break;
             case "close_market":
                 break;
