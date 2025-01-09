@@ -139,7 +139,7 @@ public class GoingUp extends ListenerAdapter {
                                             }
                                         }, error -> {
                                             // 에러 처리
-                                            loggingChannel(guild,"오류: 개인 지갑 채널을 생성하는 데 실패했습니다.");
+                                            loggingChannel(guild,"### 오류: 개인 지갑 채널을 생성하는 데 실패했습니다.");
                                         });
 
                                 createMsgAndErase(textChannel, "["+member.getEffectiveName() + "]참가 완료!");
@@ -174,6 +174,17 @@ public class GoingUp extends ListenerAdapter {
                 movePlayerToMainChannel(textChannel);
                 break;
             case "reset_game":
+                event.getChannel().sendMessage("주의: 로그 채널 제외 모든 메세지가 초기화됩니다.\n" +
+                                "개인지갑의 개인채널들, 주가차트 등 모든 정보가 삭제되므로\n" +
+                                " 모든 게임이 종료되었을 때 초기화 하는걸 권장드립니다.\n" +
+                                "\n### 정말 초기화하시겠습니까? (10초 뒤 이 메세지는 사라집니다.)")
+                        .addActionRow(Button.danger("confirm_reset", "확인"))
+                        .queue(message -> {
+                            message.delete().queueAfter(10, TimeUnit.SECONDS);
+                        });
+                break;
+            case "confirm_reset":
+                resetGame(textChannel);
                 break;
 
         }
@@ -203,7 +214,8 @@ public class GoingUp extends ListenerAdapter {
 
         channel.sendMessage("이동 중...").queue(message -> {
             if(joinUsers.keySet().isEmpty()) {
-                editMsgAndErase(message, "이동할 인원이 없습니다!");
+                editMsgAndErase(message, "이동할 플레이어가 없습니다!");
+                loggingChannel(guild, "### 위험: 전체소집, 이동할 플레이어가 없음");
             }
 
             for (Member member : joinUsers.keySet()) {
@@ -216,6 +228,7 @@ public class GoingUp extends ListenerAdapter {
                 }
                 if(totalMembers == completedCount.incrementAndGet()) {
                     editMsgAndErase(message, "이동 완료!");
+                    loggingChannel(guild, "전체 소집 완료");
                 }
             }
         });
@@ -226,21 +239,57 @@ public class GoingUp extends ListenerAdapter {
         VoiceChannel mainChannel = guild.getVoiceChannelById(VC_MAIN_ID);
 
         if( member.getVoiceState() == null || member.getVoiceState().getChannel() == null) {
-            loggingChannel(guild, "위험: ["+member.getEffectiveName()+"]님은 음성채널에 있지 않습니다.");
+            loggingChannel(guild, "### 위험: ["+member.getEffectiveName()+"]님은 음성채널에 있지 않습니다.");
             return;
         }
 
         if(mainChannel != null) {
             guild.moveVoiceMember(member, mainChannel).queue(
-                    success -> {},
+                    success -> {
+                        loggingChannel(guild, "["+member.getEffectiveName()+"] 이동 성공");
+                    },
                     error -> {
-                        loggingChannel(guild, "오류: 알 수 없는 이유로 ["+member.getEffectiveName()+"]님을 이동시키지 못했습니다.");
+                        loggingChannel(guild, "### 오류: 알 수 없는 이유로 ["+member.getEffectiveName()+"]님을 이동시키지 못했습니다.");
                     }
             );
         }
-
     }
 
+    //게임 초기화 로직
+    private void resetGame(TextChannel textChannel) {
+        currentRound = 1;
+        currentPhase = Phase.READY;
+
+        Guild guild = textChannel.getGuild();
+
+        initTextChannel(guild, TC_SYSTEM_ID);
+
+        //개인채널삭제
+        for (int i=0;i<joinUsers.size();i++) {
+            Players player = new ArrayList<>(joinUsers.values()).get(i);
+            Member member = new ArrayList<>(joinUsers.keySet()).get(i);
+
+            TextChannel targetChannel = guild.getTextChannelById(player.getChannelId());
+
+            if(targetChannel != null) {
+                targetChannel.delete().queue(
+                        success -> {
+                            loggingChannel(guild, "["+member.getEffectiveName()+"] 채널 삭제 성공");
+                        },
+                        error -> {
+                            loggingChannel(guild, "### 오류: 알 수 없는 이유로 ["+member.getEffectiveName()+"]의 채널을 삭제하지 못했습니다.");
+                        });
+            }
+        }
+
+        //주가차트 초기화 후 0회차 사진 올리기
+        //딜러콘솔3개 초기화후 콘솔 버튼 올리기
+
+        joinUsers.clear();
+    }
+
+
+    //=============================================================================================
     //메세지 생성 후 3초 후 삭제
     private void createMsgAndErase(TextChannel channel, String msg) {
         channel.sendMessage(msg).queue(message -> {
@@ -260,6 +309,17 @@ public class GoingUp extends ListenerAdapter {
         TextChannel logChannel = guild.getTextChannelById(TC_LOG_ID);
         if (logChannel != null) {
             logChannel.sendMessage(message).queue();
+        }
+    }
+
+    private void initTextChannel(Guild guild, String id) {
+        TextChannel channel = guild.getTextChannelById(id);
+
+        if (channel != null) {
+            // 메시지 삭제 (100개씩 삭제)
+            channel.getIterableHistory()
+                    .takeAsync(100)
+                    .thenAccept(channel::purgeMessages);
         }
     }
 
