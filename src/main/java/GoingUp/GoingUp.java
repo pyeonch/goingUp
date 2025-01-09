@@ -117,7 +117,7 @@ public class GoingUp extends ListenerAdapter {
                                     updatedRows.add(ActionRow.of(
                                             row.getButtons().stream()
                                                     .map(button -> button.getId().equals(buttonId)
-                                                            ? button.asDisabled() // 클릭한 버튼만 비활성화
+                                                            ? button.asDisabled().withLabel(member.getEffectiveName()) // 클릭한 버튼만 비활성화
                                                             : button) // 나머지 버튼 유지
                                                     .toList()));
                                 }

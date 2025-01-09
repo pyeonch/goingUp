@@ -11,13 +11,13 @@ public class Consts {
     final static String TC_LOG_ID = "";
     final static String TC_SYSTEM_ID = "";
 
-    final static String VC_MAIN = "";
+    final static String VC_MAIN_ID = "";
 
-    final static String CATE_WALLET = "";
+    final static String CATE_WALLET_ID = "";
 
-    final static String ROLE_PLAYER = "";
-    final static String ROLE_SPECTATOR = "";
-    final static String ROLE_ADMIN = "";
+    final static String ROLE_PLAYER_ID = "";
+    final static String ROLE_SPECTATOR_ID = "";
+    final static String ROLE_ADMIN_ID = "";
 
 
 
