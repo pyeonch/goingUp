@@ -9,11 +9,15 @@ public class Consts {
     final static String TC_ADMIN_PRE_BUY_ID = "";
     final static String TC_ADMIN_MAIN_BUY_ID = "";
     final static String TC_LOG_ID = "";
+    final static String TC_SYSTEM_ID = "";
 
     final static String VC_MAIN = "";
 
+    final static String CATE_WALLET = "";
+
     final static String ROLE_PLAYER = "";
     final static String ROLE_SPECTATOR = "";
+    final static String ROLE_ADMIN = "";
 
 
 

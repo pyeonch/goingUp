@@ -3,10 +3,12 @@ package GoingUp;
 import GoingUp.Features.Players;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.entities.Role;
 import net.dv8tion.jda.api.entities.channel.Channel;
+import net.dv8tion.jda.api.entities.channel.concrete.Category;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
@@ -16,6 +18,7 @@ import net.dv8tion.jda.api.interactions.components.buttons.Button;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.List;
 
@@ -74,11 +77,11 @@ public class GoingUp extends ListenerAdapter {
     @Override
     public void onButtonInteraction(@NotNull ButtonInteractionEvent event) {
         String buttonId = event.getComponentId();
-        Channel channel = event.getChannel();
+        Channel eventChannel = event.getChannel();
         Member member = event.getMember();
         Guild guild = event.getGuild();
 
-        if(channel instanceof TextChannel textChannel) {
+        if(eventChannel instanceof TextChannel textChannel) {
             if(textChannel.getId().equals(TC_ADMIN_CONSOLE_ID)) {
                 adminConsoleButtonInteract(event, buttonId, textChannel);
             } else if (textChannel.getId().equals(TC_SYSTEM_ID)) {
@@ -102,7 +105,7 @@ public class GoingUp extends ListenerAdapter {
                                 //String playerNickname = String.format("%02d. %s", playerNumber, member.getEffectiveName());
                                 joinUsers.putIfAbsent(member, new Players());
 
-
+                                //버튼 비활성화
                                 List<ActionRow> updatedRows = new ArrayList<>();
                                 for (ActionRow row : event.getMessage().getActionRows()) {
                                     updatedRows.add(ActionRow.of(
@@ -113,6 +116,25 @@ public class GoingUp extends ListenerAdapter {
                                                     .toList()));
                                 }
                                 event.getMessage().editMessageComponents(updatedRows).queue();
+
+                                //개인지갑 채널 생성
+                                Category category = event.getGuild().getCategoryById(CATE_WALLET);
+                                Role adminRole = event.getGuild().getRoleById(ROLE_ADMIN);
+
+                                category.createTextChannel(member.getEffectiveName()) // 사용자 이름으로 텍스트 채널 생성
+                                        .addPermissionOverride(member, EnumSet.of(Permission.VIEW_CHANNEL, Permission.MESSAGE_SEND), null) // 사용자에게 보기 및 쓰기 권한
+                                        .addPermissionOverride(adminRole, EnumSet.of(Permission.VIEW_CHANNEL, Permission.MESSAGE_SEND), null) // 운영자 역할에 권한 부여
+                                        .addPermissionOverride(event.getGuild().getPublicRole(), null, EnumSet.of(Permission.VIEW_CHANNEL)) // 다른 사용자 접근 금지
+                                        .queue(channel -> {
+                                            // 채널 생성 성공 시 ID를 Players 객체에 저장
+                                            Players player = joinUsers.get(member);
+                                            if (player != null) {
+                                                player.setWalletTCId(channel.getId()); // walletTCId에 채널 ID 저장
+                                            }
+                                        }, error -> {
+                                            // 에러 처리
+                                            loggingChannel(guild,"오류: 개인 지갑 채널을 생성하는 데 실패했습니다.");
+                                        });
 
                                 event.reply("참가 완료").setEphemeral(true).queue();
                                 loggingChannel(guild, "["+member.getEffectiveName()+"] 참가 완료");

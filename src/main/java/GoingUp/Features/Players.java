@@ -26,4 +26,7 @@ public class Players {
 
     private String init_TId = "";
 
+    @Setter
+    private String walletTCId = "";
+
 }
