@@ -142,9 +142,7 @@ public class GoingUp extends ListenerAdapter {
                                             loggingChannel(guild,"오류: 개인 지갑 채널을 생성하는 데 실패했습니다.");
                                         });
 
-                                textChannel.sendMessage("["+member.getEffectiveName() + "]참가 완료!").queue(message -> {
-                                    editMsgAndErase(message, null);
-                                });
+                                createMsgAndErase(textChannel, "["+member.getEffectiveName() + "]참가 완료!");
                                 loggingChannel(guild, "["+member.getEffectiveName()+"] 참가 완료");
                             }
                         }
@@ -160,7 +158,7 @@ public class GoingUp extends ListenerAdapter {
         event.deferEdit().queue();
         switch (buttonId) {
             case "join_player":
-                joinPlayerButtons(event);
+                joinPlayerButtons(event, textChannel);
                 break;
             case "game_start":
                 break;
@@ -181,9 +179,9 @@ public class GoingUp extends ListenerAdapter {
         }
     }
 
-    private void joinPlayerButtons(ButtonInteractionEvent event) {
+    private void joinPlayerButtons(ButtonInteractionEvent event, TextChannel textChannel) {
         TextChannel systemChannel =event.getGuild().getTextChannelById(TC_SYSTEM_ID);
-        systemChannel.sendMessage("반갑습니다! 플레이어분들, 하단의 플레이어버튼을 선택해주세요.").addActionRow(
+        systemChannel.sendMessage("반갑습니다! 플레이어분들, 하단의 플레이어 버튼을 선택해주세요.").addActionRow(
                 Button.primary("player_1","플레이어1"),
                 Button.primary("player_2","플레이어2"),
                 Button.primary("player_3","플레이어3"),
@@ -192,6 +190,8 @@ public class GoingUp extends ListenerAdapter {
                 ).addActionRow(
                         Button.primary("player_6","플레이어6"))
                 .queue();
+
+        createMsgAndErase(textChannel, "플레이어 참가 버튼 생성 완료!");
     }
 
     private void movePlayerToMainChannel(TextChannel channel) {
@@ -241,16 +241,18 @@ public class GoingUp extends ListenerAdapter {
 
     }
 
-    //메세지 수정 및 3초후 삭제
-    //replytext에 null이 들어오면 미수정후 3초후 삭제
-    private void editMsgAndErase(Message message, String replyText) {
-        if(replyText == null) {
+    //메세지 생성 후 3초 후 삭제
+    private void createMsgAndErase(TextChannel channel, String msg) {
+        channel.sendMessage(msg).queue(message -> {
             message.delete().queueAfter(3, TimeUnit.SECONDS);
-        }else {
-            message.editMessage(replyText).queue(editedMessage -> {
-                editedMessage.delete().queueAfter(3, TimeUnit.SECONDS);
-            });
-        }
+        });
+    }
+
+    //메세지 수정 및 3초 후 삭제
+    private void editMsgAndErase(Message message, String replyText) {
+        message.editMessage(replyText).queue(editedMessage -> {
+            editedMessage.delete().queueAfter(3, TimeUnit.SECONDS);
+        });
     }
 
     // 로그 채널에 로그 기록
