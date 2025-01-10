@@ -63,6 +63,7 @@ public class GoingUp extends ListenerAdapter {
                 Button.primary("rest","휴식")
         ).addActionRow(
                 Button.success("call_player","전체소집"),
+                Button.danger("spec_role","관전권한부여"),
                 Button.danger("reset_game","초기화")
         ).queue();
 
@@ -173,6 +174,18 @@ public class GoingUp extends ListenerAdapter {
             case "call_player":
                 movePlayerToMainChannel(textChannel);
                 break;
+            case "spec_role":
+                event.getChannel().sendMessage("주의: 현재 플레이어에게 플레이어 권한이 삭제되고, 관전 권한을 부여합니다.\n" +
+                        "게임이 종료되지 않은경우 누르게되면 스포일러 등 문제가 발생합니다.\n\n" +
+                        "### 정말 관전 역할을 부여하시겠습니꺄? (10초뒤 이 메세지는 사라집니다.)")
+                        .addActionRow(Button.danger("confirm_spec_role","확인"))
+                        .queue(message -> {
+                            message.delete().queueAfter(10, TimeUnit.SECONDS);
+                        });
+                break;
+            case "confirm_spec_role":
+                addSpecRole(textChannel);
+                break;
             case "reset_game":
                 event.getChannel().sendMessage("주의: 로그 채널 제외 모든 메세지가 초기화됩니다.\n" +
                                 "개인지갑의 개인채널들, 주가차트 등 모든 정보가 삭제되므로\n" +
@@ -212,9 +225,9 @@ public class GoingUp extends ListenerAdapter {
         int totalMembers = joinUsers.size();
         AtomicInteger completedCount = new AtomicInteger(0);
 
-        channel.sendMessage("이동 중...").queue(message -> {
+        channel.sendMessage(">>> 이동 중...").queue(message -> {
             if(joinUsers.keySet().isEmpty()) {
-                editMsgAndErase(message, "이동할 플레이어가 없습니다!");
+                editMsgAndErase(message, ">>> 이동할 플레이어가 없습니다!");
                 loggingChannel(guild, "### 위험: 전체소집, 이동할 플레이어가 없음");
             }
 
@@ -227,7 +240,7 @@ public class GoingUp extends ListenerAdapter {
                     handleMemberVoiceChannel(channel, member, guild);
                 }
                 if(totalMembers == completedCount.incrementAndGet()) {
-                    editMsgAndErase(message, "이동 완료!");
+                    editMsgAndErase(message, ">>> 이동 완료!");
                     loggingChannel(guild, "전체 소집 완료");
                 }
             }
@@ -253,6 +266,34 @@ public class GoingUp extends ListenerAdapter {
                     }
             );
         }
+    }
+
+    //관전 권한 부여
+    private void addSpecRole(TextChannel textChannel) {
+        Role playerRole = textChannel.getGuild().getRoleById(ROLE_PLAYER_ID);
+        Role spectatorRole = textChannel.getGuild().getRoleById(ROLE_SPECTATOR_ID);
+
+        int totalMembers = joinUsers.size();
+        AtomicInteger completedCount = new AtomicInteger(0);
+
+        textChannel.sendMessage(">>> 플레이어 권한을 삭제하고 관전 권한 부여중...").queue(message -> {
+            if(joinUsers.keySet().isEmpty()){
+                editMsgAndErase(message,">>> 플레이어가 없습니다!");
+                loggingChannel(textChannel.getGuild(), "### 위험: 관전 권한 부여, 플레이어가 없음");
+            }
+            for(Member member : joinUsers.keySet()) {
+                removeRole(member, playerRole);
+                assignRole(member, spectatorRole);
+
+                if(totalMembers == completedCount.incrementAndGet()) {
+                    editMsgAndErase(message,">>> 권한 변경 완료!\n제대로 변경되지 않은 경우 한번 더 시도해주세요.");
+                    loggingChannel(textChannel.getGuild(), "관전 권한 부여 완료");
+                }
+            }
+
+        });
+
+
     }
 
     //게임 초기화 로직
