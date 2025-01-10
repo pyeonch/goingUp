@@ -101,8 +101,8 @@ public class GoingUp extends ListenerAdapter {
                 Button.success("game_start", "게임 시작")
         ).addActionRow(
                 Button.primary("start_market", "장오픈"),
-                Button.primary("close_market", "장마감"),
-                Button.primary("select_news", "기사선택"),
+                Button.primary("close_market", "주식변동"),
+                Button.primary("select_news", "신문기사 선택"),
                 Button.primary("rest", "휴식")
         ).addActionRow(
                 Button.success("call_player", "전체소집"),
