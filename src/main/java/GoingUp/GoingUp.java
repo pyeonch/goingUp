@@ -1,6 +1,7 @@
 package GoingUp;
 
 import GoingUp.Features.Players;
+import GoingUp.Features.Stock;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.dv8tion.jda.api.Permission;
@@ -31,6 +32,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static GoingUp.Consts.*;
+import static GoingUp.Features.Stock.*;
 
 @Slf4j
 @RequiredArgsConstructor
@@ -38,6 +40,7 @@ public class GoingUp extends ListenerAdapter {
 
     private final HashMap<Member, Players> joinUsers = new HashMap<>();
     public int currentRound = 1;
+    public boolean isRoundEnd = false;
     public Phase currentPhase = Phase.READY;
     public String ADMIN_CONSOLE_STATUS_MESSAGE_ID = "";
 
@@ -229,8 +232,26 @@ public class GoingUp extends ListenerAdapter {
     }
 
     private String generatePlayerWalletMessage(Players player) {
-        //todo 총금액계산
-        return "```[" + player.getName() + "] 님의 총 금액은 [" + player.getVal() + "]원 입니다.\n" +
+        int targetRound = currentRound -1;
+        if(isRoundEnd){
+            targetRound++;
+        }
+
+        // 각 주식별로 플레이어가 보유한 주식 수와 현재 라운드의 주가를 곱한 총 금액 계산
+        int totalAmount = player.getVal();
+
+        totalAmount += player.getStock_park() * PARK.getVal()[targetRound];
+        totalAmount += player.getStock_capital() * CAPITAL.getVal()[targetRound];
+        totalAmount += player.getStock_MCar() * MCAR.getVal()[targetRound];
+        totalAmount += player.getStock_tour() * TOUR.getVal()[targetRound];
+        totalAmount += player.getStock_eat() * EAT.getVal()[targetRound];
+        totalAmount += player.getStock_Scar() * SCAR.getVal()[targetRound];
+        totalAmount += player.getStock_bank() * BANK.getVal()[targetRound];
+        totalAmount += player.getStock_pharmacy() * PHARMACY.getVal()[targetRound];
+        totalAmount += player.getStock_death() * DEATH.getVal()[targetRound];
+        totalAmount += player.getStock_build() * BUILD.getVal()[targetRound];
+
+        return "```[" + player.getName() + "] 님의 총 금액은 [" + totalAmount + "]원 입니다.\n" +
                 "당신의 잔액은 [" + player.getVal() + "]원 입니다. \n\n" +
                 "시안테마파크 - " + player.getStock_park() + "주\n" +
                 "돈내놔캐피탈 - " + player.getStock_capital() + "주\n" +
