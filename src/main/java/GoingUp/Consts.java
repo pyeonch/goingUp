@@ -20,10 +20,6 @@ public class Consts {
     final static String ROLE_ADMIN_ID = "";
 
 
-
-
-
-
     @AllArgsConstructor
     public enum BootPath {
         LOCAL, DOCKER;
@@ -39,7 +35,7 @@ public class Consts {
 
         String desc;
 
-        String getDesc(){
+        String getDesc() {
             return desc;
         }
     }

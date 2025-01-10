@@ -46,13 +46,13 @@ public class GoingUp extends ListenerAdapter {
 
     @Override
     public void onMessageReceived(@NotNull MessageReceivedEvent event) {
-        if(event.getAuthor().isBot()) return;
-        if(!event.isFromGuild()) return;
+        if (event.getAuthor().isBot()) return;
+        if (!event.isFromGuild()) return;
 
         Channel channel = event.getChannel();
-        if(channel instanceof TextChannel textChannel) {
+        if (channel instanceof TextChannel textChannel) {
             String[] message = event.getMessage().getContentRaw().split(" ");
-            if(textChannel.getId().equals(TC_ADMIN_CONSOLE_ID) && message[0].equals("!콘솔")){
+            if (textChannel.getId().equals(TC_ADMIN_CONSOLE_ID) && message[0].equals("!콘솔")) {
                 adminConsoleButtons(textChannel);
             }
         }
@@ -63,29 +63,29 @@ public class GoingUp extends ListenerAdapter {
         Guild guild = event.getGuild();
 
         //라운드 강제변경
-        if(event.getModalId().equals("input_round")) {
+        if (event.getModalId().equals("input_round")) {
             event.deferEdit().queue();
 
             String newRound = event.getValue("round").getAsString();
             TextChannel textChannel = guild.getTextChannelById(event.getChannelId());
 
-            try{
+            try {
                 int round = Integer.parseInt(newRound);
 
-                if(round < 1 || round > 7) {
-                    createMsgAndErase(textChannel,">>> 라운드 강제 변경 실패: 1 ~ 7 이외의 수를 입력하셨습니다.");
+                if (round < 1 || round > 7) {
+                    createMsgAndErase(textChannel, ">>> 라운드 강제 변경 실패: 1 ~ 7 이외의 수를 입력하셨습니다.");
                     loggingChannel(guild, "### 위험: 라운드 강제 변경 실패, 1 ~ 7 이외의 수 입력");
                 }
 
                 currentRound = Integer.parseInt(newRound);
                 currentPhase = Phase.REST;
 
-                for(Players player : joinUsers.values()) {
-                    modifyPlayerWallet(guild,player);
+                for (Players player : joinUsers.values()) {
+                    modifyPlayerWallet(guild, player);
                 }
 
-                loggingChannel(guild, "라운드 강제 변경, "+newRound+"라운드로 변경");
-            }catch (NumberFormatException e) {
+                loggingChannel(guild, "라운드 강제 변경, " + newRound + "라운드로 변경");
+            } catch (NumberFormatException e) {
                 createMsgAndErase(textChannel, ">>> 라운드 강제 변경 실패: 숫자를 입력하세요.");
                 loggingChannel(guild, "### 위험: 라운드 강제 변경 실패, 숫자 이외의 값 입력");
             }
@@ -96,20 +96,20 @@ public class GoingUp extends ListenerAdapter {
     //어드민 콘솔 버튼
     private void adminConsoleButtons(TextChannel textChannel) {
         textChannel.sendMessage("게임 관리 콘솔입니다.").addActionRow(
-                Button.secondary("join_player","플레이어 모집"),
-                Button.success("game_start","게임 시작")
+                Button.secondary("join_player", "플레이어 모집"),
+                Button.success("game_start", "게임 시작")
         ).addActionRow(
-                Button.primary("start_market","장오픈"),
-                Button.primary("close_market","장마감"),
-                Button.primary("select_news","기사선택"),
-                Button.primary("rest","휴식")
+                Button.primary("start_market", "장오픈"),
+                Button.primary("close_market", "장마감"),
+                Button.primary("select_news", "기사선택"),
+                Button.primary("rest", "휴식")
         ).addActionRow(
-                Button.success("call_player","전체소집"),
-                Button.secondary("manage_round","라운드 강제 변경")
+                Button.success("call_player", "전체소집"),
+                Button.secondary("manage_round", "라운드 강제 변경")
 
         ).addActionRow(
-                Button.danger("spec_role","관전권한부여"),
-                Button.danger("reset_game","초기화")
+                Button.danger("spec_role", "관전권한부여"),
+                Button.danger("reset_game", "초기화")
         ).queue();
 
         //유휴상태가 아닐때만 현재 상태 표시
@@ -133,13 +133,13 @@ public class GoingUp extends ListenerAdapter {
         Member member = event.getMember();
         Guild guild = event.getGuild();
 
-        if(eventChannel instanceof TextChannel textChannel) {
-            if(textChannel.getId().equals(TC_ADMIN_CONSOLE_ID)) {
+        if (eventChannel instanceof TextChannel textChannel) {
+            if (textChannel.getId().equals(TC_ADMIN_CONSOLE_ID)) {
                 adminConsoleButtonInteract(event, buttonId, textChannel);
             } else if (textChannel.getId().equals(TC_SYSTEM_ID)) {
 
                 //플레이어 참가 버튼
-                if(buttonId.startsWith("player_")){
+                if (buttonId.startsWith("player_")) {
                     event.deferEdit().queue();
 
                     String playerNumber = buttonId.replace("player_", "");
@@ -188,11 +188,11 @@ public class GoingUp extends ListenerAdapter {
                                             }
                                         }, error -> {
                                             // 에러 처리
-                                            loggingChannel(guild,"### 오류: 개인 지갑 채널을 생성하는 데 실패했습니다.");
+                                            loggingChannel(guild, "### 오류: 개인 지갑 채널을 생성하는 데 실패했습니다.");
                                         });
 
-                                createMsgAndErase(textChannel, "["+member.getEffectiveName() + "]참가 완료!");
-                                loggingChannel(guild, "["+member.getEffectiveName()+"] 참가 완료");
+                                createMsgAndErase(textChannel, "[" + member.getEffectiveName() + "]참가 완료!");
+                                loggingChannel(guild, "[" + member.getEffectiveName() + "] 참가 완료");
                             }
                         }
                     }
@@ -205,12 +205,12 @@ public class GoingUp extends ListenerAdapter {
     //개인 채널에 있는 지갑 텍스트 생성
     private void initPlayerWallet(Players player, TextChannel channel) {
         channel.sendMessage(generatePlayerWalletMessage(player)).queue(message -> {
-                    player.setWallet_TId(message.getId());
-                    message.pin().queue(null, failure -> {
-                        loggingChannel(channel.getGuild(),"### 위험: 지갑 핀 고정 실패, ["+player.getName()+"]님의 지갑 텍스트를 고정하지 못했습니다.");
-                    });
+            player.setWallet_TId(message.getId());
+            message.pin().queue(null, failure -> {
+                loggingChannel(channel.getGuild(), "### 위험: 지갑 핀 고정 실패, [" + player.getName() + "]님의 지갑 텍스트를 고정하지 못했습니다.");
+            });
         }, failure -> {
-            loggingChannel(channel.getGuild(), "### 오류: ["+player.getName()+"]님의 지갑 텍스트 생성 실패");
+            loggingChannel(channel.getGuild(), "### 오류: [" + player.getName() + "]님의 지갑 텍스트 생성 실패");
         });
     }
 
@@ -218,22 +218,23 @@ public class GoingUp extends ListenerAdapter {
     private void modifyPlayerWallet(Guild guild, Players player) {
         TextChannel playerChannel = guild.getTextChannelById(player.getChannelId());
 
-        if(playerChannel == null) {
-            loggingChannel(guild, "### 오류: ["+player.getName()+"]채널 미존재");
+        if (playerChannel == null) {
+            loggingChannel(guild, "### 오류: [" + player.getName() + "]채널 미존재");
             return;
         }
 
         playerChannel.retrieveMessageById(player.getWallet_TId()).queue(message -> {
             message.editMessage(generatePlayerWalletMessage(player)).queue();
         }, failure -> {
-            loggingChannel(guild, "### 오류: ["+player.getName()+"] 님의 지갑 갱신 실패, 새로운 지갑을 생성시도합니다.");
+            loggingChannel(guild, "### 오류: [" + player.getName() + "] 님의 지갑 갱신 실패, 새로운 지갑을 생성시도합니다.");
             initPlayerWallet(player, playerChannel);
         });
     }
 
+    //지갑, 자산 연산후 스트링 반환 메소드
     private String generatePlayerWalletMessage(Players player) {
-        int targetRound = currentRound -1;
-        if(isRoundEnd){
+        int targetRound = currentRound - 1;
+        if (isRoundEnd) {
             targetRound++;
         }
 
@@ -298,9 +299,9 @@ public class GoingUp extends ListenerAdapter {
             case "spec_role":
                 event.deferEdit().queue();
                 event.getChannel().sendMessage("주의: 현재 플레이어에게 플레이어 권한이 삭제되고, 관전 권한을 부여합니다.\n" +
-                        "게임이 종료되지 않은경우 누르게되면 스포일러 등 문제가 발생합니다.\n\n" +
-                        "### 정말 관전 역할을 부여하시겠습니꺄? (10초뒤 이 메세지는 사라집니다.)")
-                        .addActionRow(Button.danger("confirm_spec_role","확인"))
+                                "게임이 종료되지 않은경우 누르게되면 스포일러 등 문제가 발생합니다.\n\n" +
+                                "### 정말 관전 역할을 부여하시겠습니꺄? (10초뒤 이 메세지는 사라집니다.)")
+                        .addActionRow(Button.danger("confirm_spec_role", "확인"))
                         .queue(message -> {
                             message.delete().queueAfter(10, TimeUnit.SECONDS);
                         });
@@ -329,15 +330,15 @@ public class GoingUp extends ListenerAdapter {
     }
 
     private void joinPlayerButtons(ButtonInteractionEvent event, TextChannel textChannel) {
-        TextChannel systemChannel =event.getGuild().getTextChannelById(TC_SYSTEM_ID);
+        TextChannel systemChannel = event.getGuild().getTextChannelById(TC_SYSTEM_ID);
         systemChannel.sendMessage("반갑습니다! 플레이어분들, 하단의 플레이어 버튼을 선택해주세요.").addActionRow(
-                Button.primary("player_1","플레이어1"),
-                Button.primary("player_2","플레이어2"),
-                Button.primary("player_3","플레이어3"),
-                Button.primary("player_4","플레이어4"),
-                Button.primary("player_5","플레이어5")
+                        Button.primary("player_1", "플레이어1"),
+                        Button.primary("player_2", "플레이어2"),
+                        Button.primary("player_3", "플레이어3"),
+                        Button.primary("player_4", "플레이어4"),
+                        Button.primary("player_5", "플레이어5")
                 ).addActionRow(
-                        Button.primary("player_6","플레이어6"))
+                        Button.primary("player_6", "플레이어6"))
                 .queue();
 
         createMsgAndErase(textChannel, "플레이어 참가 버튼 생성 완료!");
@@ -351,7 +352,7 @@ public class GoingUp extends ListenerAdapter {
         AtomicInteger completedCount = new AtomicInteger(0);
 
         channel.sendMessage(">>> 이동 중...").queue(message -> {
-            if(joinUsers.keySet().isEmpty()) {
+            if (joinUsers.keySet().isEmpty()) {
                 editMsgAndErase(message, ">>> 이동할 플레이어가 없습니다!");
                 loggingChannel(guild, "### 위험: 전체소집 실패, 이동할 플레이어가 없음");
             }
@@ -364,7 +365,7 @@ public class GoingUp extends ListenerAdapter {
                 } else {
                     handleMemberVoiceChannel(member, guild);
                 }
-                if(totalMembers == completedCount.incrementAndGet()) {
+                if (totalMembers == completedCount.incrementAndGet()) {
                     editMsgAndErase(message, ">>> 이동 완료!");
                     loggingChannel(guild, "전체 소집 완료");
                 }
@@ -376,18 +377,18 @@ public class GoingUp extends ListenerAdapter {
     private void handleMemberVoiceChannel(Member member, Guild guild) {
         VoiceChannel mainChannel = guild.getVoiceChannelById(VC_MAIN_ID);
 
-        if( member.getVoiceState() == null || member.getVoiceState().getChannel() == null) {
-            loggingChannel(guild, "### 위험: ["+member.getEffectiveName()+"]님은 음성채널에 있지 않습니다.");
+        if (member.getVoiceState() == null || member.getVoiceState().getChannel() == null) {
+            loggingChannel(guild, "### 위험: [" + member.getEffectiveName() + "]님은 음성채널에 있지 않습니다.");
             return;
         }
 
-        if(mainChannel != null) {
+        if (mainChannel != null) {
             guild.moveVoiceMember(member, mainChannel).queue(
                     success -> {
-                        loggingChannel(guild, "["+member.getEffectiveName()+"] 이동 성공");
+                        loggingChannel(guild, "[" + member.getEffectiveName() + "] 이동 성공");
                     },
                     error -> {
-                        loggingChannel(guild, "### 오류: 알 수 없는 이유로 ["+member.getEffectiveName()+"]님을 이동시키지 못했습니다.");
+                        loggingChannel(guild, "### 오류: 알 수 없는 이유로 [" + member.getEffectiveName() + "]님을 이동시키지 못했습니다.");
                     }
             );
         }
@@ -396,7 +397,7 @@ public class GoingUp extends ListenerAdapter {
     //라운드 강제 변경
     private void manageRound(ButtonInteractionEvent event) {
 
-        if(currentPhase == Phase.READY) {
+        if (currentPhase == Phase.READY) {
             event.deferEdit().queue();
             createMsgAndErase(event.getChannel().asTextChannel(), "게임이 진행중이지 않습니다.");
             loggingChannel(event.getGuild(), "### 위험: 게임 미진행 중 강제 변경 시도");
@@ -407,7 +408,7 @@ public class GoingUp extends ListenerAdapter {
                 .setPlaceholder("주의: 해당 라운드의 찌라시 구매 페이즈로 전환됩니다.")
                 .setRequired(true)
                 .build();
-        Modal modal = Modal.create("input_round","라운드 강제 변경")
+        Modal modal = Modal.create("input_round", "라운드 강제 변경")
                 .addActionRow(quantityInput)
                 .build();
         event.replyModal(modal).queue();
@@ -423,16 +424,16 @@ public class GoingUp extends ListenerAdapter {
         AtomicInteger completedCount = new AtomicInteger(0);
 
         textChannel.sendMessage(">>> 플레이어 권한을 삭제하고 관전 권한 부여중...").queue(message -> {
-            if(joinUsers.keySet().isEmpty()){
-                editMsgAndErase(message,">>> 플레이어가 없습니다!");
+            if (joinUsers.keySet().isEmpty()) {
+                editMsgAndErase(message, ">>> 플레이어가 없습니다!");
                 loggingChannel(textChannel.getGuild(), "### 위험: 관전 권한 부여 실패, 플레이어가 없음");
             }
-            for(Member member : joinUsers.keySet()) {
+            for (Member member : joinUsers.keySet()) {
                 removeRole(member, playerRole);
                 assignRole(member, spectatorRole);
 
-                if(totalMembers == completedCount.incrementAndGet()) {
-                    editMsgAndErase(message,">>> 권한 변경 완료!\n제대로 변경되지 않은 경우 한번 더 시도해주세요.");
+                if (totalMembers == completedCount.incrementAndGet()) {
+                    editMsgAndErase(message, ">>> 권한 변경 완료!\n제대로 변경되지 않은 경우 한번 더 시도해주세요.");
                     loggingChannel(textChannel.getGuild(), "관전 권한 부여 완료");
                 }
             }
@@ -455,13 +456,13 @@ public class GoingUp extends ListenerAdapter {
         for (Players player : joinUsers.values()) {
             TextChannel targetChannel = guild.getTextChannelById(player.getChannelId());
 
-            if(targetChannel != null) {
+            if (targetChannel != null) {
                 targetChannel.delete().queue(
                         success -> {
-                            loggingChannel(guild, "["+player.getName()+"] 채널 삭제 성공");
+                            loggingChannel(guild, "[" + player.getName() + "] 채널 삭제 성공");
                         },
                         error -> {
-                            loggingChannel(guild, "### 오류: 알 수 없는 이유로 ["+player.getName()+"]의 채널을 삭제하지 못했습니다.");
+                            loggingChannel(guild, "### 오류: 알 수 없는 이유로 [" + player.getName() + "]의 채널을 삭제하지 못했습니다.");
                         });
             }
         }
