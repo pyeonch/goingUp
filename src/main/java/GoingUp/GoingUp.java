@@ -12,11 +12,15 @@ import net.dv8tion.jda.api.entities.channel.Channel;
 import net.dv8tion.jda.api.entities.channel.concrete.Category;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
 import net.dv8tion.jda.api.entities.channel.concrete.VoiceChannel;
+import net.dv8tion.jda.api.events.interaction.ModalInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import net.dv8tion.jda.api.interactions.components.ActionRow;
 import net.dv8tion.jda.api.interactions.components.buttons.Button;
+import net.dv8tion.jda.api.interactions.components.text.TextInput;
+import net.dv8tion.jda.api.interactions.components.text.TextInputStyle;
+import net.dv8tion.jda.api.interactions.modals.Modal;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
@@ -51,6 +55,38 @@ public class GoingUp extends ListenerAdapter {
         }
     }
 
+    @Override
+    public void onModalInteraction(@NotNull ModalInteractionEvent event) {
+        Guild guild = event.getGuild();
+
+        if(event.getModalId().equals("input_round")) {
+            event.deferEdit().queue();
+
+            String newRound = event.getValue("round").getAsString();
+            TextChannel textChannel = guild.getTextChannelById(event.getChannelId());
+
+            try{
+                int round = Integer.parseInt(newRound);
+
+                if(round < 1 || round > 7) {
+                    createMsgAndErase(textChannel,">>> 라운드 강제 변경 실패: 1 ~ 7 이외의 수를 입력하셨습니다.");
+                    loggingChannel(guild, "### 위험: 라운드 강제 변경 실패, 1 ~ 7 이외의 수 입력");
+                }
+
+                currentRound = Integer.parseInt(newRound);
+                currentPhase = Phase.REST;
+
+                //todo 각 지갑에 현재 시세 반영
+
+                loggingChannel(guild, "### 위험: 라운드 강제 변경, "+newRound+"로 변경");
+            }catch (NumberFormatException e) {
+                createMsgAndErase(textChannel, ">>> 라운드 강제 변경 실패: 숫자를 입력하세요.");
+                loggingChannel(guild, "### 위험: 라운드 강제 변경 실패, 숫자 이외의 값 입력");
+            }
+
+        }
+    }
+
     //어드민 콘솔 버튼
     private void adminConsoleButtons(TextChannel textChannel) {
         textChannel.sendMessage("게임 관리 콘솔입니다.").addActionRow(
@@ -63,19 +99,24 @@ public class GoingUp extends ListenerAdapter {
                 Button.primary("rest","휴식")
         ).addActionRow(
                 Button.success("call_player","전체소집"),
+                Button.secondary("manage_round","라운드 강제 변경")
+
+        ).addActionRow(
                 Button.danger("spec_role","관전권한부여"),
                 Button.danger("reset_game","초기화")
         ).queue();
 
-        if(ADMIN_CONSOLE_STATUS_MESSAGE_ID.isEmpty()) {
-            textChannel.sendMessage(">>> 현재 라운드 : " + currentRound + "\n" +
-                    "현재 페이즈 : " + currentPhase.getDesc()).queue(message -> ADMIN_CONSOLE_STATUS_MESSAGE_ID = message.getId());
-        } else {
-            textChannel.retrieveMessageById(ADMIN_CONSOLE_STATUS_MESSAGE_ID).queue(message ->
-                    message.editMessage(">>> 현재 라운드 : " + currentRound + "\n" +
-                            "현재 페이즈 : " + currentPhase.getDesc()).queue()
-            );
-
+        //유휴상태가 아닐때만 현재 상태 표시
+        if (currentPhase != Phase.READY) {
+            if (ADMIN_CONSOLE_STATUS_MESSAGE_ID.isEmpty()) {
+                textChannel.sendMessage(">>> 현재 라운드 : " + currentRound + "\n" +
+                        "현재 페이즈 : " + currentPhase.getDesc()).queue(message -> ADMIN_CONSOLE_STATUS_MESSAGE_ID = message.getId());
+            } else {
+                textChannel.retrieveMessageById(ADMIN_CONSOLE_STATUS_MESSAGE_ID).queue(message ->
+                        message.editMessage(">>> 현재 라운드 : " + currentRound + "\n" +
+                                "현재 페이즈 : " + currentPhase.getDesc()).queue()
+                );
+            }
         }
     }
 
@@ -156,9 +197,10 @@ public class GoingUp extends ListenerAdapter {
 
     //운영자콘솔 버튼 이벤트
     private void adminConsoleButtonInteract(ButtonInteractionEvent event, String buttonId, TextChannel textChannel) {
-        event.deferEdit().queue();
+
         switch (buttonId) {
             case "join_player":
+                event.deferEdit().queue();
                 joinPlayerButtons(event, textChannel);
                 break;
             case "game_start":
@@ -172,9 +214,14 @@ public class GoingUp extends ListenerAdapter {
             case "rest":
                 break;
             case "call_player":
+                event.deferEdit().queue();
                 movePlayerToMainChannel(textChannel);
                 break;
+            case "manage_round":
+                manageRound(event);
+                break;
             case "spec_role":
+                event.deferEdit().queue();
                 event.getChannel().sendMessage("주의: 현재 플레이어에게 플레이어 권한이 삭제되고, 관전 권한을 부여합니다.\n" +
                         "게임이 종료되지 않은경우 누르게되면 스포일러 등 문제가 발생합니다.\n\n" +
                         "### 정말 관전 역할을 부여하시겠습니꺄? (10초뒤 이 메세지는 사라집니다.)")
@@ -184,9 +231,11 @@ public class GoingUp extends ListenerAdapter {
                         });
                 break;
             case "confirm_spec_role":
+                event.deferEdit().queue();
                 addSpecRole(textChannel);
                 break;
             case "reset_game":
+                event.deferEdit().queue();
                 event.getChannel().sendMessage("주의: 로그 채널 제외 모든 메세지가 초기화됩니다.\n" +
                                 "개인지갑의 개인채널들, 주가차트 등 모든 정보가 삭제되므로\n" +
                                 " 모든 게임이 종료되었을 때 초기화 하는걸 권장드립니다.\n" +
@@ -197,6 +246,7 @@ public class GoingUp extends ListenerAdapter {
                         });
                 break;
             case "confirm_reset":
+                event.deferEdit().queue();
                 resetGame(textChannel);
                 break;
 
@@ -228,7 +278,7 @@ public class GoingUp extends ListenerAdapter {
         channel.sendMessage(">>> 이동 중...").queue(message -> {
             if(joinUsers.keySet().isEmpty()) {
                 editMsgAndErase(message, ">>> 이동할 플레이어가 없습니다!");
-                loggingChannel(guild, "### 위험: 전체소집, 이동할 플레이어가 없음");
+                loggingChannel(guild, "### 위험: 전체소집 실패, 이동할 플레이어가 없음");
             }
 
             for (Member member : joinUsers.keySet()) {
@@ -268,6 +318,20 @@ public class GoingUp extends ListenerAdapter {
         }
     }
 
+    //라운드 강제 변경
+    private void manageRound(ButtonInteractionEvent event) {
+
+        TextInput quantityInput = TextInput.create("round", "변경할 라운드 입력", TextInputStyle.SHORT)
+                .setPlaceholder("주의: 해당 라운드의 찌라시 구매 페이즈로 전환됩니다.")
+                .setRequired(true)
+                .build();
+        Modal modal = Modal.create("input_round","라운드 강제 변경")
+                .addActionRow(quantityInput)
+                .build();
+        event.replyModal(modal).queue();
+
+    }
+
     //관전 권한 부여
     private void addSpecRole(TextChannel textChannel) {
         Role playerRole = textChannel.getGuild().getRoleById(ROLE_PLAYER_ID);
@@ -279,7 +343,7 @@ public class GoingUp extends ListenerAdapter {
         textChannel.sendMessage(">>> 플레이어 권한을 삭제하고 관전 권한 부여중...").queue(message -> {
             if(joinUsers.keySet().isEmpty()){
                 editMsgAndErase(message,">>> 플레이어가 없습니다!");
-                loggingChannel(textChannel.getGuild(), "### 위험: 관전 권한 부여, 플레이어가 없음");
+                loggingChannel(textChannel.getGuild(), "### 위험: 관전 권한 부여 실패, 플레이어가 없음");
             }
             for(Member member : joinUsers.keySet()) {
                 removeRole(member, playerRole);
@@ -323,8 +387,8 @@ public class GoingUp extends ListenerAdapter {
             }
         }
 
-        //주가차트 초기화 후 0회차 사진 올리기
-        //딜러콘솔3개 초기화후 콘솔 버튼 올리기
+        //todo 주가차트 초기화 후 0회차 사진 올리기
+        //todo 딜러콘솔3개 초기화후 콘솔 버튼 올리기
 
         joinUsers.clear();
     }
