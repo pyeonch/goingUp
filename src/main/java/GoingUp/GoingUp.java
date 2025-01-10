@@ -1,6 +1,7 @@
 package GoingUp;
 
 import GoingUp.Features.Players;
+import GoingUp.Features.Stock;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.dv8tion.jda.api.Permission;
@@ -21,12 +22,11 @@ import net.dv8tion.jda.api.interactions.components.buttons.Button;
 import net.dv8tion.jda.api.interactions.components.text.TextInput;
 import net.dv8tion.jda.api.interactions.components.text.TextInputStyle;
 import net.dv8tion.jda.api.interactions.modals.Modal;
+import net.dv8tion.jda.api.utils.FileUpload;
 import org.jetbrains.annotations.NotNull;
 
-import java.util.ArrayList;
-import java.util.EnumSet;
-import java.util.HashMap;
-import java.util.List;
+import java.io.File;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -38,10 +38,12 @@ import static GoingUp.Features.Stock.*;
 public class GoingUp extends ListenerAdapter {
 
     private final HashMap<Member, Players> joinUsers = new HashMap<>();
-    public int currentRound = 1;
+    public int currentRound = 7;
     public boolean isRoundEnd = false;
     public Phase currentPhase = Phase.READY;
     public String ADMIN_CONSOLE_STATUS_MESSAGE_ID = "";
+
+    static String imagePath = "src/main/resources/";
 
     @Override
     public void onMessageReceived(@NotNull MessageReceivedEvent event) {
@@ -113,15 +115,7 @@ public class GoingUp extends ListenerAdapter {
 
         //유휴상태가 아닐때만 현재 상태 표시
         if (currentPhase != Phase.READY) {
-            if (ADMIN_CONSOLE_STATUS_MESSAGE_ID.isEmpty()) {
-                textChannel.sendMessage(">>> 현재 라운드 : " + currentRound + "\n" +
-                        "현재 페이즈 : " + currentPhase.getDesc()).queue(message -> ADMIN_CONSOLE_STATUS_MESSAGE_ID = message.getId());
-            } else {
-                textChannel.retrieveMessageById(ADMIN_CONSOLE_STATUS_MESSAGE_ID).queue(message ->
-                        message.editMessage(">>> 현재 라운드 : " + currentRound + "\n" +
-                                "현재 페이즈 : " + currentPhase.getDesc()).queue()
-                );
-            }
+            displayAdminConsolePhase(textChannel.getGuild());
         }
     }
 
@@ -158,6 +152,27 @@ public class GoingUp extends ListenerAdapter {
                                             .toList()));
                         }
                         event.getMessage().editMessageComponents(updatedRows).queue();
+                    }
+
+                    //뉴스 사진 보내기
+                    String targetCompany=buttonId.substring(5);
+
+                    Optional<Stock> stockOptional = Arrays.stream(Stock.values())
+                            .filter(stock -> stock.getName().equals(targetCompany))
+                            .findFirst();
+
+                    if(stockOptional.isPresent()) {
+                        String path = imagePath+"/1.뉴스기사/"+stockOptional.get().getPath()+"/"+currentRound+"회차.png";
+
+                        File imgFile = new File(path);
+
+                        if(imgFile.exists() && imgFile.isFile()) {
+                            textChannel.sendFiles(FileUpload.fromData(imgFile)).queue();
+                        } else {
+                            loggingChannel(guild, "### 오류: "+path+" 파일이 존재하지 않습니다.");
+                        }
+                    } else {
+                        loggingChannel(guild, "### 오류: 회사 이름이 없습니다.");
                     }
 
                 }
@@ -302,7 +317,7 @@ public class GoingUp extends ListenerAdapter {
                 "신중자동차 - " + player.getStock_Scar() + "주\n" +
                 "맡겨봐은행 - " + player.getStock_bank() + "주\n" +
                 "다살려제약 - " + player.getStock_pharmacy() + "주\n" +
-                "에프터데스상조 - " + player.getStock_death() + "주\n" +
+                "애프터데스상조 - " + player.getStock_death() + "주\n" +
                 "잘살아건설 - " + player.getStock_build() + "주```";
     }
 
@@ -406,12 +421,18 @@ public class GoingUp extends ListenerAdapter {
         }
 
         for(Players player : joinUsers.values()){
+            player.initSelection();
             TextChannel playerChannel = guild.getTextChannelById(player.getChannelId());
 
             playerChannel.sendMessage("## " + currentRound + "라운드 기사선택\n 신문 기사를 확인할 기업 2개를 선택해주세요.")
                     .addComponents(generateButtons("news_",currentCompanys))
                     .queue();
         }
+
+        currentPhase = Phase.NEWS;
+        displayAdminConsolePhase(guild);
+
+        loggingChannel(guild, "페이즈 전환: "+ currentRound + "라운드 기사선택 시작");
     }
 
     private void movePlayerToMainChannel(TextChannel channel) {
@@ -564,6 +585,20 @@ public class GoingUp extends ListenerAdapter {
         }
 
         return actionRows;
+    }
+
+    private void displayAdminConsolePhase(Guild guild){
+        TextChannel textChannel = guild.getTextChannelById(TC_ADMIN_CONSOLE_ID);
+
+        if (ADMIN_CONSOLE_STATUS_MESSAGE_ID.isEmpty()) {
+            textChannel.sendMessage(">>> 현재 라운드 : " + currentRound + "\n" +
+                    "현재 페이즈 : " + currentPhase.getDesc()).queue(message -> ADMIN_CONSOLE_STATUS_MESSAGE_ID = message.getId());
+        } else {
+            textChannel.retrieveMessageById(ADMIN_CONSOLE_STATUS_MESSAGE_ID).queue(message ->
+                    message.editMessage(">>> 현재 라운드 : " + currentRound + "\n" +
+                            "현재 페이즈 : " + currentPhase.getDesc()).queue()
+            );
+        }
     }
 
     //메세지 생성 후 3초 후 삭제
