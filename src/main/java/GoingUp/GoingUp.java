@@ -475,6 +475,19 @@ public class GoingUp extends ListenerAdapter {
         currentRound++;
         isRoundEnd = false;
         displayAdminConsolePhase(guild);
+
+        TextChannel chartChannel = guild.getTextChannelById(TC_CHART_ID);
+        if(currentRound ==3 || currentRound == 6){
+            String path = imagePath + "/"+currentRound+"공개정보.png";
+            File imgFile = new File(path);
+
+            if(imgFile.exists() && imgFile.isFile()) {
+                chartChannel.sendFiles(FileUpload.fromData(imgFile)).queue();
+            } else {
+                loggingChannel(guild, "### 오류: "+path+"파일이 존재하지 않습니다.");
+            }
+        }
+
     }
 
     private void movePlayerToMainChannel(TextChannel channel) {
