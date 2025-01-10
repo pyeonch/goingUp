@@ -59,6 +59,7 @@ public class GoingUp extends ListenerAdapter {
     public void onModalInteraction(@NotNull ModalInteractionEvent event) {
         Guild guild = event.getGuild();
 
+        //라운드 강제변경
         if(event.getModalId().equals("input_round")) {
             event.deferEdit().queue();
 
@@ -76,9 +77,11 @@ public class GoingUp extends ListenerAdapter {
                 currentRound = Integer.parseInt(newRound);
                 currentPhase = Phase.REST;
 
-                //todo 각 지갑에 현재 시세 반영
+                for(Players player : joinUsers.values()) {
+                    modifyPlayerWallet(guild,player);
+                }
 
-                loggingChannel(guild, "### 위험: 라운드 강제 변경, "+newRound+"로 변경");
+                loggingChannel(guild, "라운드 강제 변경, "+newRound+"라운드로 변경");
             }catch (NumberFormatException e) {
                 createMsgAndErase(textChannel, ">>> 라운드 강제 변경 실패: 숫자를 입력하세요.");
                 loggingChannel(guild, "### 위험: 라운드 강제 변경 실패, 숫자 이외의 값 입력");
@@ -151,7 +154,7 @@ public class GoingUp extends ListenerAdapter {
                                 loggingChannel(guild, "### 위험: [" + member.getEffectiveName() + "] 관전 상태에서 참가 신청");
                             } else {
                                 //String playerNickname = String.format("%02d. %s", playerNumber, member.getEffectiveName());
-                                joinUsers.putIfAbsent(member, new Players());
+                                joinUsers.putIfAbsent(member, new Players(member.getEffectiveName()));
 
                                 //버튼 비활성화
                                 List<ActionRow> updatedRows = new ArrayList<>();
@@ -178,6 +181,7 @@ public class GoingUp extends ListenerAdapter {
                                             Players player = joinUsers.get(member);
                                             if (player != null) {
                                                 player.setChannelId(channel.getId()); // channelId에 채널 ID 저장
+                                                initPlayerWallet(player, channel);
                                             }
                                         }, error -> {
                                             // 에러 처리
@@ -195,6 +199,51 @@ public class GoingUp extends ListenerAdapter {
         }
     }
 
+    //개인 채널에 있는 지갑 텍스트 생성
+    private void initPlayerWallet(Players player, TextChannel channel) {
+        channel.sendMessage(generatePlayerWalletMessage(player)).queue(message -> {
+                    player.setWallet_TId(message.getId());
+                    message.pin().queue(null, failure -> {
+                        loggingChannel(channel.getGuild(),"### 위험: 지갑 핀 고정 실패, ["+player.getName()+"]님의 지갑 텍스트를 고정하지 못했습니다.");
+                    });
+        }, failure -> {
+            loggingChannel(channel.getGuild(), "### 오류: ["+player.getName()+"]님의 지갑 텍스트 생성 실패");
+        });
+    }
+
+    //개인 채널에 있는 지갑 텍스트 현행화
+    private void modifyPlayerWallet(Guild guild, Players player) {
+        TextChannel playerChannel = guild.getTextChannelById(player.getChannelId());
+
+        if(playerChannel == null) {
+            loggingChannel(guild, "### 오류: ["+player.getName()+"]채널 미존재");
+            return;
+        }
+
+        playerChannel.retrieveMessageById(player.getWallet_TId()).queue(message -> {
+            message.editMessage(generatePlayerWalletMessage(player)).queue();
+        }, failure -> {
+            loggingChannel(guild, "### 오류: ["+player.getName()+"] 님의 지갑 갱신 실패, 새로운 지갑을 생성시도합니다.");
+            initPlayerWallet(player, playerChannel);
+        });
+    }
+
+    private String generatePlayerWalletMessage(Players player) {
+        //todo 총금액계산
+        return "```[" + player.getName() + "] 님의 총 금액은 [" + player.getVal() + "]원 입니다.\n" +
+                "당신의 잔액은 [" + player.getVal() + "]원 입니다. \n\n" +
+                "시안테마파크 - " + player.getStock_park() + "주\n" +
+                "돈내놔캐피탈 - " + player.getStock_capital() + "주\n" +
+                "막달려자동차 - " + player.getStock_MCar() + "주\n" +
+                "두발로여행사 - " + player.getStock_tour() + "주\n" +
+                "효심먹거리투어 - " + player.getStock_eat() + "주\n" +
+                "신중자동차 - " + player.getStock_Scar() + "주\n" +
+                "맡겨봐은행 - " + player.getStock_bank() + "주\n" +
+                "다살려제약 - " + player.getStock_pharmacy() + "주\n" +
+                "에프터데스상조 - " + player.getStock_death() + "주\n" +
+                "잘살아건설 - " + player.getStock_build() + "주```";
+    }
+
     //운영자콘솔 버튼 이벤트
     private void adminConsoleButtonInteract(ButtonInteractionEvent event, String buttonId, TextChannel textChannel) {
 
@@ -204,14 +253,19 @@ public class GoingUp extends ListenerAdapter {
                 joinPlayerButtons(event, textChannel);
                 break;
             case "game_start":
+                //todo
                 break;
             case "start_market":
+                //todo
                 break;
             case "close_market":
+                //todo
                 break;
             case "select_news":
+                //todo
                 break;
             case "rest":
+                //todo
                 break;
             case "call_player":
                 event.deferEdit().queue();
@@ -284,10 +338,10 @@ public class GoingUp extends ListenerAdapter {
             for (Member member : joinUsers.keySet()) {
                 if (member.getVoiceState() == null || member.getVoiceState().getChannel() == null) {
                     guild.retrieveMemberById(member.getId()).queue(refreshedMember -> {
-                        handleMemberVoiceChannel(channel, refreshedMember, guild);
+                        handleMemberVoiceChannel(refreshedMember, guild);
                     });
                 } else {
-                    handleMemberVoiceChannel(channel, member, guild);
+                    handleMemberVoiceChannel(member, guild);
                 }
                 if(totalMembers == completedCount.incrementAndGet()) {
                     editMsgAndErase(message, ">>> 이동 완료!");
@@ -298,7 +352,7 @@ public class GoingUp extends ListenerAdapter {
 
     }
 
-    private void handleMemberVoiceChannel(TextChannel channel, Member member, Guild guild) {
+    private void handleMemberVoiceChannel(Member member, Guild guild) {
         VoiceChannel mainChannel = guild.getVoiceChannelById(VC_MAIN_ID);
 
         if( member.getVoiceState() == null || member.getVoiceState().getChannel() == null) {
@@ -320,6 +374,13 @@ public class GoingUp extends ListenerAdapter {
 
     //라운드 강제 변경
     private void manageRound(ButtonInteractionEvent event) {
+
+        if(currentPhase == Phase.READY) {
+            event.deferEdit().queue();
+            createMsgAndErase(event.getChannel().asTextChannel(), "게임이 진행중이지 않습니다.");
+            loggingChannel(event.getGuild(), "### 위험: 게임 미진행 중 강제 변경 시도");
+            return;
+        }
 
         TextInput quantityInput = TextInput.create("round", "변경할 라운드 입력", TextInputStyle.SHORT)
                 .setPlaceholder("주의: 해당 라운드의 찌라시 구매 페이즈로 전환됩니다.")
@@ -370,19 +431,16 @@ public class GoingUp extends ListenerAdapter {
         initTextChannel(guild, TC_SYSTEM_ID);
 
         //개인채널삭제
-        for (int i=0;i<joinUsers.size();i++) {
-            Players player = new ArrayList<>(joinUsers.values()).get(i);
-            Member member = new ArrayList<>(joinUsers.keySet()).get(i);
-
+        for (Players player : joinUsers.values()) {
             TextChannel targetChannel = guild.getTextChannelById(player.getChannelId());
 
             if(targetChannel != null) {
                 targetChannel.delete().queue(
                         success -> {
-                            loggingChannel(guild, "["+member.getEffectiveName()+"] 채널 삭제 성공");
+                            loggingChannel(guild, "["+player.getName()+"] 채널 삭제 성공");
                         },
                         error -> {
-                            loggingChannel(guild, "### 오류: 알 수 없는 이유로 ["+member.getEffectiveName()+"]의 채널을 삭제하지 못했습니다.");
+                            loggingChannel(guild, "### 오류: 알 수 없는 이유로 ["+player.getName()+"]의 채널을 삭제하지 못했습니다.");
                         });
             }
         }
