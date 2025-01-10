@@ -7,6 +7,11 @@ import lombok.Setter;
 @Getter
 @RequiredArgsConstructor
 public class Players {
+
+    public Players(String name) {
+        this.name = name;
+    }
+
     @Setter
     private String name;
     @Setter
@@ -30,7 +35,12 @@ public class Players {
     @Setter
     private String wallet_TId = ""; //지갑 현황 텍스트 아이디
 
-    public Players(String name) {
-        this.name = name;
+    private int selectionCount = 0;
+
+    public void incrementSelection() {
+        selectionCount++;
+    }
+    public void initSelection() {
+        selectionCount = 0;
     }
 }

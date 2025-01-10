@@ -1,7 +1,6 @@
 package GoingUp;
 
 import GoingUp.Features.Players;
-import GoingUp.Features.Stock;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.dv8tion.jda.api.Permission;
@@ -134,7 +133,35 @@ public class GoingUp extends ListenerAdapter {
         Guild guild = event.getGuild();
 
         if (eventChannel instanceof TextChannel textChannel) {
-            if (textChannel.getId().equals(TC_ADMIN_CONSOLE_ID)) {
+            if (textChannel.getParentCategoryId().equals(CATE_WALLET_ID)) {
+                //뉴스
+                if(buttonId.startsWith("news_")) {
+                    Players player = joinUsers.get(member);
+                    player.incrementSelection();
+
+                    if(player.getSelectionCount() == 2) {
+                        List<ActionRow> disabledRows = disableButtons(event.getMessage().getActionRows());
+
+                        event.editMessage("2개의 기업이 선택되었습니다.")
+                                .setComponents(disabledRows)
+                                .queue(message -> {
+                                    message.deleteOriginal().queueAfter(5, TimeUnit.SECONDS);
+                                });
+                    } else {
+                        event.deferEdit().queue();
+                        List<ActionRow> updatedRows = new ArrayList<>();
+                        for (ActionRow row : event.getMessage().getActionRows()) {
+                            updatedRows.add(ActionRow.of(
+                                    row.getButtons().stream()
+                                            .map(button -> button.getId().equals(buttonId)
+                                                    ? button.asDisabled() : button)
+                                            .toList()));
+                        }
+                        event.getMessage().editMessageComponents(updatedRows).queue();
+                    }
+
+                }
+            }else if (textChannel.getId().equals(TC_ADMIN_CONSOLE_ID)) {
                 adminConsoleButtonInteract(event, buttonId, textChannel);
             } else if (textChannel.getId().equals(TC_SYSTEM_ID)) {
 
@@ -200,6 +227,19 @@ public class GoingUp extends ListenerAdapter {
             }
 
         }
+    }
+
+    private List<ActionRow> disableButtons(List<ActionRow> actionRows) {
+        List<ActionRow> disabledRows = new ArrayList<>();
+
+        for (ActionRow row : actionRows) {
+            List<Button> disabledButtons = row.getButtons().stream()
+                    .map(Button::asDisabled) // 모든 버튼을 비활성화
+                    .toList();
+            disabledRows.add(ActionRow.of(disabledButtons));
+        }
+
+        return disabledRows;
     }
 
     //개인 채널에 있는 지갑 텍스트 생성
@@ -284,7 +324,8 @@ public class GoingUp extends ListenerAdapter {
                 //todo
                 break;
             case "select_news":
-                //todo
+                event.deferEdit().queue();
+                selectNews(textChannel);
                 break;
             case "rest":
                 //todo
@@ -342,6 +383,35 @@ public class GoingUp extends ListenerAdapter {
                 .queue();
 
         createMsgAndErase(textChannel, "플레이어 참가 버튼 생성 완료!");
+    }
+
+    //뉴스선택 메소드
+    private void selectNews(TextChannel textChannel) {
+        Guild guild = textChannel.getGuild();
+        List<String> currentCompanys = new ArrayList<>();
+
+        switch (currentRound) {
+            case 1:
+                currentCompanys = COMPANYS_ROUND1;
+                break;
+            case 2:
+                currentCompanys = COMPANYS_ROUND2;
+                break;
+            case 3: case 4: case 5: case 6:
+                currentCompanys = COMPANYS_ALL;
+                break;
+            case 7:
+                currentCompanys = COMPANYS_ROUND7;
+                break;
+        }
+
+        for(Players player : joinUsers.values()){
+            TextChannel playerChannel = guild.getTextChannelById(player.getChannelId());
+
+            playerChannel.sendMessage("## " + currentRound + "라운드 기사선택\n 신문 기사를 확인할 기업 2개를 선택해주세요.")
+                    .addComponents(generateButtons("news_",currentCompanys))
+                    .queue();
+        }
     }
 
     private void movePlayerToMainChannel(TextChannel channel) {
@@ -475,6 +545,27 @@ public class GoingUp extends ListenerAdapter {
 
 
     //=============================================================================================
+    //버튼 생성기
+    private List<ActionRow> generateButtons(String type, List<String> companys) {
+        List<ActionRow> actionRows = new ArrayList<>();
+        List<Button> buttons = new ArrayList<>();
+
+        for (String company : companys) {
+            buttons.add(Button.primary(type + company, company));
+
+            if (buttons.size() == 5) {
+                actionRows.add(ActionRow.of(buttons));
+                buttons.clear();
+            }
+        }
+        // 남은 버튼 처리
+        if (!buttons.isEmpty()) {
+            actionRows.add(ActionRow.of(buttons));
+        }
+
+        return actionRows;
+    }
+
     //메세지 생성 후 3초 후 삭제
     private void createMsgAndErase(TextChannel channel, String msg) {
         channel.sendMessage(msg).queue(message -> {
