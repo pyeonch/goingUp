@@ -177,7 +177,7 @@ public class GoingUp extends ListenerAdapter {
                                             // 채널 생성 성공 시 ID를 Players 객체에 저장
                                             Players player = joinUsers.get(member);
                                             if (player != null) {
-                                                player.setWalletTCId(channel.getId()); // walletTCId에 채널 ID 저장
+                                                player.setChannelId(channel.getId()); // channelId에 채널 ID 저장
                                             }
                                         }, error -> {
                                             // 에러 처리
