@@ -23,9 +23,9 @@ public class Consts {
     final static String ROLE_ADMIN_ID = "";
 
     final static List<String> COMPANYS_ROUND1 = Arrays.asList("시안테마파크", "돈내놔캐피탈", "막달려자동차", "두발로여행사", "효심먹거리투어", "신중자동차", "맡겨봐은행");
-    final static List<String> COMPANYS_ROUND2 = Arrays.asList("시안테마파크", "돈내놔캐피탈", "막달려자동차", "두발로여행사", "효심먹거리투어", "신중자동차", "맡겨봐은행", "다살려제약", "에프터데스상조");
-    final static List<String> COMPANYS_ALL = Arrays.asList("시안테마파크", "돈내놔캐피탈", "막달려자동차", "두발로여행사", "효심먹거리투어", "신중자동차", "맡겨봐은행", "다살려제약", "에프터데스상조", "잘살아건설");
-    final static List<String> COMPANYS_ROUND7 = Arrays.asList("돈내놔캐피탈", "두발로여행사", "효심먹거리투어", "신중자동차", "맡겨봐은행", "다살려제약", "에프터데스상조", "잘살아건설");
+    final static List<String> COMPANYS_ROUND2 = Arrays.asList("시안테마파크", "돈내놔캐피탈", "막달려자동차", "두발로여행사", "효심먹거리투어", "신중자동차", "맡겨봐은행", "다살려제약", "애프터데스상조");
+    final static List<String> COMPANYS_ALL = Arrays.asList("시안테마파크", "돈내놔캐피탈", "막달려자동차", "두발로여행사", "효심먹거리투어", "신중자동차", "맡겨봐은행", "다살려제약", "애프터데스상조", "잘살아건설");
+    final static List<String> COMPANYS_ROUND7 = Arrays.asList("돈내놔캐피탈", "두발로여행사", "효심먹거리투어", "신중자동차", "맡겨봐은행", "다살려제약", "애프터데스상조", "잘살아건설");
 
     @AllArgsConstructor
     public enum BootPath {
