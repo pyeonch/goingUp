@@ -1,5 +1,6 @@
 package GoingUp;
 
+import GoingUp.Features.Bank;
 import GoingUp.Features.Players;
 import GoingUp.Features.Stock;
 import lombok.RequiredArgsConstructor;
@@ -42,7 +43,9 @@ public class GoingUp extends ListenerAdapter {
     public int currentRound = 1;
     public boolean isRoundEnd = false;
     public Phase currentPhase = Phase.READY;
-    public String ADMIN_CONSOLE_STATUS_MESSAGE_ID = "";
+    public String ADMIN_CONSOLE_STATUS_MESSAGE_ID = ""; //어드민콘솔에 페이즈 보여주는 채팅
+    public String ADMIN_PRE_BUY_MESSAGE_ID = "";
+    public Bank bank = null;
 
     static String imagePath = "src/main/resources/";
 
@@ -125,12 +128,46 @@ public class GoingUp extends ListenerAdapter {
         TextChannel textChannel = guild.getTextChannelById(TC_ADMIN_CONSOLE_ID);
 
         if (ADMIN_CONSOLE_STATUS_MESSAGE_ID.isEmpty()) {
-            textChannel.sendMessage(">>> 현재 라운드 : " + currentRound + "\n" +
-                    "현재 페이즈 : " + currentPhase.getDesc()).queue(message -> ADMIN_CONSOLE_STATUS_MESSAGE_ID = message.getId());
+            textChannel.sendMessage(">>> 현재 라운드: " + currentRound + "\n" +
+                    "현재 페이즈: " + currentPhase.getDesc()).queue(message -> ADMIN_CONSOLE_STATUS_MESSAGE_ID = message.getId());
         } else {
             textChannel.retrieveMessageById(ADMIN_CONSOLE_STATUS_MESSAGE_ID).queue(message ->
-                    message.editMessage(">>> 현재 라운드 : " + currentRound + "\n" +
-                            "현재 페이즈 : " + currentPhase.getDesc()).queue()
+                    message.editMessage(">>> 현재 라운드: " + currentRound + "\n" +
+                            "현재 페이즈: " + currentPhase.getDesc()).queue()
+            );
+        }
+    }
+
+
+    private void displayPreBuyQuantity(Guild guild) {
+        TextChannel textChannel = guild.getTextChannelById(TC_ADMIN_PRE_BUY_ID);
+
+        String nextPri = bank.getNextPriority().isEmpty() ?"구매가능":bank.getNextPriority();
+
+        StringBuilder stringBuilder = new StringBuilder();
+        stringBuilder.append(" >>> 현재 라운드: "+ currentRound+", ");
+        if(currentRound != 1) {
+            stringBuilder.append("["+ bank.getCurrentPriority()+"]님부터 시작");
+        }
+        stringBuilder.append("\n" +
+                "시안테마파크 - " + bank.getPrePark() + "\n" +
+                "돈내놔캐피탈 - " + bank.getPreCapital() + "\n" +
+                "막달려자동차 - " + bank.getPreMCar() + "\n" +
+                "두발로여행사 - " + bank.getPreTour() + "\n" +
+                "효심먹거리투어 - " + bank.getPreEat() + "\n" +
+                "신중자동차 - " + bank.getPreSCar() + "\n" +
+                "맡겨봐은행 - " + bank.getPreBank() + "\n" +
+                "다살려제약 - " + bank.getPrePharmacy() + "\n" +
+                "애프터데스상조 - " + bank.getPreDeath() + "\n" +
+                "잘살아건설 - " + bank.getPreBuild() + "\n" +
+                "다음 라운드 우선권 - " + nextPri);
+
+
+        if (ADMIN_PRE_BUY_MESSAGE_ID.isEmpty()) {
+            textChannel.sendMessage(stringBuilder).queue(message -> ADMIN_PRE_BUY_MESSAGE_ID = message.getId());
+        } else {
+            textChannel.retrieveMessageById(ADMIN_PRE_BUY_MESSAGE_ID).queue(message ->
+                    message.editMessage(stringBuilder).queue()
             );
         }
     }
@@ -245,6 +282,11 @@ public class GoingUp extends ListenerAdapter {
 
                                 createMsgAndErase(textChannel, "[" + member.getEffectiveName() + "]참가 완료!");
                                 loggingChannel(guild, "[" + member.getEffectiveName() + "] 참가 완료");
+
+                                if(joinUsers.size() == 6) {
+                                    TextChannel adminConsoleTC = guild.getTextChannelById(TC_ADMIN_CONSOLE_ID);
+                                    loggingChannel(guild, "6명의 플레이어 참가 완료");
+                                }
                             }
                         }
                     }
@@ -345,7 +387,13 @@ public class GoingUp extends ListenerAdapter {
                 joinPlayerButtons(event, textChannel);
                 break;
             case "game_start":
-                //todo
+                event.deferEdit().queue();
+                currentPhase = Phase.REST;
+                bank = new Bank();
+                displayAdminConsolePhase(textChannel.getGuild());
+                displayPreBuyQuantity(textChannel.getGuild());
+                createMsgAndErase(textChannel, "게임 시작!");
+                loggingChannel(textChannel.getGuild(), "## 게임 시작");
                 break;
             case "start_market":
                 //todo
@@ -507,6 +555,9 @@ public class GoingUp extends ListenerAdapter {
         isRoundEnd = false;
         displayAdminConsolePhase(guild);
 
+        bank.initPreBuyStart();
+        displayPreBuyQuantity(guild);
+
         TextChannel chartChannel = guild.getTextChannelById(TC_CHART_ID);
         if(currentRound ==3 || currentRound == 6){
             String path = imagePath + "/"+currentRound+"공개정보.png";
@@ -647,6 +698,8 @@ public class GoingUp extends ListenerAdapter {
             sendImgFile(chatChannel,path);
 
             //todo 딜러콘솔3개 초기화후 콘솔 버튼 올리기
+            ADMIN_CONSOLE_STATUS_MESSAGE_ID = "";
+            ADMIN_PRE_BUY_MESSAGE_ID = "";
 
             joinUsers.clear();
 
