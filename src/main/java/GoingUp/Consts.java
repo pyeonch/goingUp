@@ -13,6 +13,7 @@ public class Consts {
     final static String TC_ADMIN_MAIN_BUY_ID = "";
     final static String TC_LOG_ID = "";
     final static String TC_SYSTEM_ID = "";
+    final static String TC_CHART_ID = "";
 
     final static String VC_MAIN_ID = "";
 

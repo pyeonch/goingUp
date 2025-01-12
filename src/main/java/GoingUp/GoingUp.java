@@ -121,6 +121,20 @@ public class GoingUp extends ListenerAdapter {
         }
     }
 
+    private void displayAdminConsolePhase(Guild guild){
+        TextChannel textChannel = guild.getTextChannelById(TC_ADMIN_CONSOLE_ID);
+
+        if (ADMIN_CONSOLE_STATUS_MESSAGE_ID.isEmpty()) {
+            textChannel.sendMessage(">>> 현재 라운드 : " + currentRound + "\n" +
+                    "현재 페이즈 : " + currentPhase.getDesc()).queue(message -> ADMIN_CONSOLE_STATUS_MESSAGE_ID = message.getId());
+        } else {
+            textChannel.retrieveMessageById(ADMIN_CONSOLE_STATUS_MESSAGE_ID).queue(message ->
+                    message.editMessage(">>> 현재 라운드 : " + currentRound + "\n" +
+                            "현재 페이즈 : " + currentPhase.getDesc()).queue()
+            );
+        }
+    }
+
     @Override
     public void onButtonInteraction(@NotNull ButtonInteractionEvent event) {
         String buttonId = event.getComponentId();
@@ -166,13 +180,7 @@ public class GoingUp extends ListenerAdapter {
                     if(stockOptional.isPresent()) {
                         String path = imagePath+"/1.뉴스기사/"+stockOptional.get().getPath()+"/"+currentRound+"회차.png";
 
-                        File imgFile = new File(path);
-
-                        if(imgFile.exists() && imgFile.isFile()) {
-                            textChannel.sendFiles(FileUpload.fromData(imgFile)).queue();
-                        } else {
-                            loggingChannel(guild, "### 오류: "+path+" 파일이 존재하지 않습니다.");
-                        }
+                        sendImgFile(textChannel, path);
                     } else {
                         loggingChannel(guild, "### 오류: 회사 이름이 없습니다.");
                     }
@@ -343,7 +351,8 @@ public class GoingUp extends ListenerAdapter {
                 //todo
                 break;
             case "close_market":
-                //todo
+                event.deferEdit().queue();
+                closeMarket(textChannel);
                 break;
             case "select_news":
                 event.deferEdit().queue();
@@ -406,6 +415,28 @@ public class GoingUp extends ListenerAdapter {
                 .queue();
 
         createMsgAndErase(textChannel, "플레이어 참가 버튼 생성 완료!");
+    }
+
+
+    //장 마감 페이즈
+    private void closeMarket(TextChannel textChannel) {
+        TextChannel chatChannel = textChannel.getGuild().getTextChannelById(TC_CHART_ID);
+        currentPhase = Phase.CLOSED;
+        isRoundEnd = true;
+
+        initTextChannel(textChannel.getGuild(), TC_CHART_ID);
+
+        for(Players player : joinUsers.values()) {
+            modifyPlayerWallet(textChannel.getGuild(), player);
+        }
+
+
+        String path1 = imagePath + "/3.주가변동판/"+currentRound+"회차.png";
+        String path2 = imagePath + "/3.주가변동판/"+currentRound+"회차 주가등락.png";
+
+        //fixme 이 이미지파일이랑 타이밍 이슈나는지 확인필요
+        sendImgFile(chatChannel, path1);
+        sendImgFile(chatChannel, path2);
     }
 
     //뉴스선택 페이즈
@@ -479,13 +510,8 @@ public class GoingUp extends ListenerAdapter {
         TextChannel chartChannel = guild.getTextChannelById(TC_CHART_ID);
         if(currentRound ==3 || currentRound == 6){
             String path = imagePath + "/"+currentRound+"공개정보.png";
-            File imgFile = new File(path);
 
-            if(imgFile.exists() && imgFile.isFile()) {
-                chartChannel.sendFiles(FileUpload.fromData(imgFile)).queue();
-            } else {
-                loggingChannel(guild, "### 오류: "+path+"파일이 존재하지 않습니다.");
-            }
+            sendImgFile(chartChannel, path);
         }
 
     }
@@ -591,32 +617,42 @@ public class GoingUp extends ListenerAdapter {
 
     //게임 초기화 로직
     private void resetGame(TextChannel textChannel) {
-        currentRound = 1;
-        currentPhase = Phase.READY;
 
-        Guild guild = textChannel.getGuild();
+        textChannel.sendMessage(">>> 게임 초기화중...").queue(message -> {
+            currentRound = 1;
+            currentPhase = Phase.READY;
 
-        initTextChannel(guild, TC_SYSTEM_ID);
+            Guild guild = textChannel.getGuild();
 
-        //개인채널삭제
-        for (Players player : joinUsers.values()) {
-            TextChannel targetChannel = guild.getTextChannelById(player.getChannelId());
+            initTextChannel(guild, TC_SYSTEM_ID);
 
-            if (targetChannel != null) {
-                targetChannel.delete().queue(
-                        success -> {
-                            loggingChannel(guild, "[" + player.getName() + "] 채널 삭제 성공");
-                        },
-                        error -> {
-                            loggingChannel(guild, "### 오류: 알 수 없는 이유로 [" + player.getName() + "]의 채널을 삭제하지 못했습니다.");
-                        });
+            //개인채널삭제
+            for (Players player : joinUsers.values()) {
+                TextChannel targetChannel = guild.getTextChannelById(player.getChannelId());
+
+                if (targetChannel != null) {
+                    targetChannel.delete().queue(
+                            success -> {
+                                loggingChannel(guild, "[" + player.getName() + "] 채널 삭제 성공");
+                            },
+                            error -> {
+                                loggingChannel(guild, "### 오류: 알 수 없는 이유로 [" + player.getName() + "]의 채널을 삭제하지 못했습니다.");
+                            });
+                }
             }
-        }
 
-        //todo 주가차트 초기화 후 0회차 사진 올리기
-        //todo 딜러콘솔3개 초기화후 콘솔 버튼 올리기
+            initTextChannel(guild, TC_CHART_ID);
+            String path = imagePath + "/3.주가변동판/0회차.png";
+            TextChannel chatChannel = guild.getTextChannelById(TC_CHART_ID);
+            sendImgFile(chatChannel,path);
 
-        joinUsers.clear();
+            //todo 딜러콘솔3개 초기화후 콘솔 버튼 올리기
+
+            joinUsers.clear();
+
+            editMsgAndErase(message, ">>> 게임 초기화 완료!");
+            loggingChannel(guild, "게임 초기화 완료");
+        });
     }
 
 
@@ -642,17 +678,14 @@ public class GoingUp extends ListenerAdapter {
         return actionRows;
     }
 
-    private void displayAdminConsolePhase(Guild guild){
-        TextChannel textChannel = guild.getTextChannelById(TC_ADMIN_CONSOLE_ID);
+    //이미지파일 전송
+    private void sendImgFile(TextChannel textChannel, String path) {
+        File imgFile = new File(path);
 
-        if (ADMIN_CONSOLE_STATUS_MESSAGE_ID.isEmpty()) {
-            textChannel.sendMessage(">>> 현재 라운드 : " + currentRound + "\n" +
-                    "현재 페이즈 : " + currentPhase.getDesc()).queue(message -> ADMIN_CONSOLE_STATUS_MESSAGE_ID = message.getId());
+        if(imgFile.exists() && imgFile.isFile()) {
+            textChannel.sendFiles(FileUpload.fromData(imgFile)).queue();
         } else {
-            textChannel.retrieveMessageById(ADMIN_CONSOLE_STATUS_MESSAGE_ID).queue(message ->
-                    message.editMessage(">>> 현재 라운드 : " + currentRound + "\n" +
-                            "현재 페이즈 : " + currentPhase.getDesc()).queue()
-            );
+            loggingChannel(textChannel.getGuild(), "### 오류: "+path+"파일이 존재하지 않습니다.");
         }
     }
 
