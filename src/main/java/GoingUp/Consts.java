@@ -28,6 +28,12 @@ public class Consts {
     final static List<String> COMPANYS_ALL = Arrays.asList("시안테마파크", "돈내놔캐피탈", "막달려자동차", "두발로여행사", "효심먹거리투어", "신중자동차", "맡겨봐은행", "다살려제약", "애프터데스상조", "잘살아건설");
     final static List<String> COMPANYS_ROUND7 = Arrays.asList("돈내놔캐피탈", "두발로여행사", "효심먹거리투어", "신중자동차", "맡겨봐은행", "다살려제약", "애프터데스상조", "잘살아건설");
 
+    //찌라시 가격
+    final static String PRE_BUY_PRICE_FIRSTHALF = "10000";
+    final static String PRE_BUY_PRICE_SECONDHALF = "15000";
+    final static String PRE_BUY_PRICE_FIRSTHALF_ADDON = "25000";
+    final static String PRE_BUY_PRICE_SECONDHALF_ADDON = "35000";
+
     @AllArgsConstructor
     public enum BootPath {
         LOCAL, DOCKER;

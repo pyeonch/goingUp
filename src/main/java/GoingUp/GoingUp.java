@@ -47,6 +47,8 @@ public class GoingUp extends ListenerAdapter {
     public String ADMIN_PRE_BUY_MESSAGE_ID = "";
     public Bank bank = null;
 
+    public String initBuyPrice = "";
+
     static String imagePath = "src/main/resources/";
 
     @Override
@@ -66,6 +68,24 @@ public class GoingUp extends ListenerAdapter {
     @Override
     public void onModalInteraction(@NotNull ModalInteractionEvent event) {
         Guild guild = event.getGuild();
+
+        if (event.getModalId().startsWith("prePlayer")) {
+            event.deferEdit().queue();
+            String showingPlayer = event.getModalId().replace("prePlayer_", "");
+            initBuyPrice = event.getValue("buyPrice").getAsString();
+
+            Players player = joinUsers.values().stream().filter(m -> m.getName().equals(showingPlayer)).findFirst().get();
+            TextChannel walletChannel = guild.getTextChannelById(player.getChannelId());
+
+            String priority = bank.getNextPriority().equals("")?"\n 혹은 우선권을 구매하세요!":"";
+
+            walletChannel.sendMessage("## "+currentRound + "라운드 찌라시 선택\n 찌라시를 확인할 기업을 선택해주세요." + priority)
+                    .addComponents(generateButtons("preBuy_",generateCurrentCompany()))
+                    .addActionRow(Button.success("buyPriority_"+player.getName(),"우선권 구매").withDisabled(!bank.getNextPriority().isEmpty()))
+                    .queue(success -> {
+                        createMsgAndErase(guild.getTextChannelById(TC_ADMIN_PRE_BUY_ID),"["+showingPlayer + "] 플레이어에게 찌라시 선택권 부여 완료");
+                    });
+        }
 
         //라운드 강제변경
         if (event.getModalId().equals("input_round")) {
@@ -95,7 +115,6 @@ public class GoingUp extends ListenerAdapter {
                 createMsgAndErase(textChannel, ">>> 라운드 강제 변경 실패: 숫자를 입력하세요.");
                 loggingChannel(guild, "### 위험: 라운드 강제 변경 실패, 숫자 이외의 값 입력");
             }
-
         }
     }
 
@@ -122,6 +141,16 @@ public class GoingUp extends ListenerAdapter {
         if (currentPhase != Phase.READY) {
             displayAdminConsolePhase(textChannel.getGuild());
         }
+    }
+
+    private void adminPreBuyButtons(TextChannel textChannel) {
+        TextChannel preBuyChannel = textChannel.getGuild().getTextChannelById(TC_ADMIN_PRE_BUY_ID);
+
+        List<String> nameList = joinUsers.values().stream().map(Players::getName).toList();
+
+        preBuyChannel.sendMessage("찌라시 구매 버튼을 표기할 플레이어를 선택해주세요.")
+                .addComponents(generateButtons("prePlayer_",nameList))
+                .queue();
     }
 
     private void displayAdminConsolePhase(Guild guild){
@@ -164,7 +193,10 @@ public class GoingUp extends ListenerAdapter {
 
 
         if (ADMIN_PRE_BUY_MESSAGE_ID.isEmpty()) {
-            textChannel.sendMessage(stringBuilder).queue(message -> ADMIN_PRE_BUY_MESSAGE_ID = message.getId());
+            textChannel.sendMessage(stringBuilder).queue(message -> {
+                ADMIN_PRE_BUY_MESSAGE_ID = message.getId();
+                message.pin().queue();
+            });
         } else {
             textChannel.retrieveMessageById(ADMIN_PRE_BUY_MESSAGE_ID).queue(message ->
                     message.editMessage(stringBuilder).queue()
@@ -180,7 +212,7 @@ public class GoingUp extends ListenerAdapter {
         Guild guild = event.getGuild();
 
         if (eventChannel instanceof TextChannel textChannel) {
-            if (textChannel.getParentCategoryId().equals(CATE_WALLET_ID)) {
+            if (textChannel.getParentCategoryId().equals(CATE_WALLET_ID)) { //각자 개인 지갑
                 //뉴스
                 if(buttonId.startsWith("news_")) {
                     Players player = joinUsers.get(member);
@@ -223,8 +255,77 @@ public class GoingUp extends ListenerAdapter {
                     }
 
                 }
-            }else if (textChannel.getId().equals(TC_ADMIN_CONSOLE_ID)) {
+                else if (buttonId.startsWith("preBuy_")) { //찌라시 선택
+                    Players player = joinUsers.get(member);
+                    player.incrementSelection();
+
+                    if(player.getSelectionCount() == 2) {
+                        List<ActionRow> disabledRows = disableButtons(event.getMessage().getActionRows());
+
+                        event.editMessage("2개의 찌라시가 선택되었습니다.")
+                                .setComponents(disabledRows)
+                                .queue(message -> {
+                                    message.deleteOriginal().queueAfter(5, TimeUnit.SECONDS);
+                                });
+                    } else {
+                        event.deferEdit().queue();
+                        List<ActionRow> updatedRows = new ArrayList<>();
+                        for (ActionRow row : event.getMessage().getActionRows()) {
+                            updatedRows.add(ActionRow.of(
+                                    row.getButtons().stream()
+                                            .map(button -> button.getId().equals(buttonId)
+                                            ?button.asDisabled():button).toList()
+                            ));
+                            event.getMessage().editMessageComponents(updatedRows).queue();
+                        }
+                    }
+
+                    String targetCompany = buttonId.replace("preBuy_", "");
+
+                    //fixme 찌라시전광판 갱신
+
+                    Optional<Stock> stockOptional = Arrays.stream(Stock.values())
+                            .filter(stock -> stock.getName().equals(targetCompany))
+                            .findFirst();
+
+                    if(stockOptional.isPresent()) {
+                        String path = imagePath+"/2.찌라시/"+stockOptional.get().getPath()+"/"+currentRound+"회차.png";
+
+                        sendImgFile(textChannel, path);
+                    } else {
+                        loggingChannel(guild, "### 오류: 회사 이름이 없습니다.");
+                    }
+
+                } else if (buttonId.startsWith("buyPriority_")) { //우선권 구매
+                    Players player = joinUsers.get(member);
+                    String priorityName = buttonId.replace("buyPriority_", "");
+                    bank.setNextPriority(priorityName);
+                    player.incrementSelection();
+                    //fixme 우선권 카운터 올리기
+                    //fixme 찌라시전광판 갱신
+
+                    event.reply("우선권 구매 완료!").queue(message -> {
+                        message.deleteOriginal().queueAfter(5, TimeUnit.SECONDS);
+                    });
+
+                }
+            } else if (textChannel.getId().equals(TC_ADMIN_CONSOLE_ID)) {
                 adminConsoleButtonInteract(event, buttonId, textChannel);
+            } else if (textChannel.getId().equals(TC_ADMIN_PRE_BUY_ID)) {
+                if(buttonId.startsWith("prePlayer_")) {
+                    String showingPlayer = buttonId.replace("preBuy_", "");
+
+                    TextInput prePlayerInput = TextInput.create("buyPrice","찌라시 가격을 입력해주세요.",TextInputStyle.SHORT)
+                            .setPlaceholder("받을 가격을 입력해주세요.")
+                            .setValue(currentRound<4?PRE_BUY_PRICE_FIRSTHALF:PRE_BUY_PRICE_SECONDHALF)
+                            .setRequired(true)
+                            .build();
+                    Modal modal = Modal.create("prePlayer_"+showingPlayer,"찌라시 가격 선정")
+                            .addActionRow(prePlayerInput)
+                            .build();
+                    event.replyModal(modal).queue();
+                }
+
             } else if (textChannel.getId().equals(TC_SYSTEM_ID)) {
 
                 //플레이어 참가 버튼
@@ -392,6 +493,9 @@ public class GoingUp extends ListenerAdapter {
                 bank = new Bank();
                 displayAdminConsolePhase(textChannel.getGuild());
                 displayPreBuyQuantity(textChannel.getGuild());
+
+                adminPreBuyButtons(textChannel);
+
                 createMsgAndErase(textChannel, "게임 시작!");
                 loggingChannel(textChannel.getGuild(), "## 게임 시작");
                 break;
@@ -490,6 +594,23 @@ public class GoingUp extends ListenerAdapter {
     //뉴스선택 페이즈
     private void selectNews(TextChannel textChannel) {
         Guild guild = textChannel.getGuild();
+
+        for(Players player : joinUsers.values()){
+            player.initSelection();
+            TextChannel playerChannel = guild.getTextChannelById(player.getChannelId());
+
+            playerChannel.sendMessage("## " + currentRound + "라운드 기사선택\n 신문 기사를 확인할 기업 2개를 선택해주세요.")
+                    .addComponents(generateButtons("news_",generateCurrentCompany()))
+                    .queue();
+        }
+
+        currentPhase = Phase.NEWS;
+        displayAdminConsolePhase(guild);
+
+        loggingChannel(guild, "페이즈 전환: "+ currentRound + "라운드 기사선택 시작");
+    }
+
+    private List<String> generateCurrentCompany() {
         List<String> currentCompanys = new ArrayList<>();
 
         switch (currentRound) {
@@ -506,20 +627,7 @@ public class GoingUp extends ListenerAdapter {
                 currentCompanys = COMPANYS_ROUND7;
                 break;
         }
-
-        for(Players player : joinUsers.values()){
-            player.initSelection();
-            TextChannel playerChannel = guild.getTextChannelById(player.getChannelId());
-
-            playerChannel.sendMessage("## " + currentRound + "라운드 기사선택\n 신문 기사를 확인할 기업 2개를 선택해주세요.")
-                    .addComponents(generateButtons("news_",currentCompanys))
-                    .queue();
-        }
-
-        currentPhase = Phase.NEWS;
-        displayAdminConsolePhase(guild);
-
-        loggingChannel(guild, "페이즈 전환: "+ currentRound + "라운드 기사선택 시작");
+        return currentCompanys;
     }
 
     //휴식 페이즈
@@ -542,6 +650,7 @@ public class GoingUp extends ListenerAdapter {
 
         StringBuilder playerVal = new StringBuilder();
         for(Players player : joinUsers.values()){
+            player.initSelection();
             playerVal.append("\n" + player.getName() + ": ")
                     .append(getTotalAmount(player, currentRound));
         }
@@ -628,7 +737,8 @@ public class GoingUp extends ListenerAdapter {
         }
 
         TextInput quantityInput = TextInput.create("round", "변경할 라운드 입력", TextInputStyle.SHORT)
-                .setPlaceholder("주의: 해당 라운드의 찌라시 구매 페이즈로 전환됩니다.")
+                .setPlaceholder("해당 라운드의 찌라시 구매 페이즈로 전환됩니다.")
+                .setMaxLength(1)
                 .setRequired(true)
                 .build();
         Modal modal = Modal.create("input_round", "라운드 강제 변경")
