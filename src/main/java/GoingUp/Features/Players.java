@@ -43,4 +43,11 @@ public class Players {
     public void initSelection() {
         selectionCount = 0;
     }
+
+    public void minusVal(int price) {
+        this.val -= price;
+    }
+    public void  plusVal(int price) {
+        this.val += price;
+    }
 }

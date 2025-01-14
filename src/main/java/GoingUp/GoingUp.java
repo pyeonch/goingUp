@@ -77,13 +77,55 @@ public class GoingUp extends ListenerAdapter {
             Players player = joinUsers.values().stream().filter(m -> m.getName().equals(showingPlayer)).findFirst().get();
             TextChannel walletChannel = guild.getTextChannelById(player.getChannelId());
 
-            String priority = bank.getNextPriority().equals("")?"\n 혹은 우선권을 구매하세요!":"";
+            String priority = bank.getNextPriority().equals("") ? "\n 혹은 우선권을 구매하세요!" : "";
 
-            walletChannel.sendMessage("## "+currentRound + "라운드 찌라시 선택\n 찌라시를 확인할 기업을 선택해주세요." + priority)
-                    .addComponents(generateButtons("preBuy_",generateCurrentCompany()))
-                    .addActionRow(Button.success("buyPriority_"+player.getName(),"우선권 구매").withDisabled(!bank.getNextPriority().isEmpty()))
+            //버튼생성,
+            List<ActionRow> actionRows = new ArrayList<>();
+            List<Button> buttons = new ArrayList<>();
+
+            for (String company : generateCurrentCompany()) {
+
+                Optional<Stock> stockOptional = Arrays.stream(Stock.values())
+                        .filter(stock -> stock.getName().equals(company))
+                        .findFirst();
+
+                int stockCount = 0;
+                if (stockOptional.isPresent()) {
+                    Stock stock = stockOptional.get();
+
+                    switch (stock) {
+                        case PARK -> stockCount = bank.getPrePark();
+                        case CAPITAL -> stockCount = bank.getPreCapital();
+                        case MCAR -> stockCount = bank.getPreMCar();
+                        case TOUR -> stockCount = bank.getPreTour();
+                        case EAT -> stockCount = bank.getPreEat();
+                        case SCAR -> stockCount = bank.getPreSCar();
+                        case BANK -> stockCount = bank.getPreBank();
+                        case PHARMACY -> stockCount = bank.getPrePharmacy();
+                        case DEATH -> stockCount = bank.getPreDeath();
+                        case BUILD -> stockCount = bank.getPreBuild();
+                    }
+                }
+
+                buttons.add(Button.primary("preBuy_" + company, company).withDisabled(stockCount == 0));
+
+                if (buttons.size() == 5) {
+                    actionRows.add(ActionRow.of(buttons));
+                    buttons.clear();
+                }
+            }
+            // 남은 버튼 처리
+            if (!buttons.isEmpty()) {
+                actionRows.add(ActionRow.of(buttons));
+            }
+
+            String currentPreBuyPrice = currentRound < 4 ? PRE_BUY_PRICE_FIRSTHALF : PRE_BUY_PRICE_SECONDHALF;
+
+            walletChannel.sendMessage("## " + currentRound + "라운드 찌라시 선택\n 찌라시를 확인할 기업을 선택해주세요.\n횟수당 ["+currentPreBuyPrice+"]원이 차감됩니다." + priority)
+                    .addComponents(actionRows)
+                    .addActionRow(Button.success("buyPriority_" + player.getName(), "우선권 구매").withDisabled(!bank.getNextPriority().isEmpty()))
                     .queue(success -> {
-                        createMsgAndErase(guild.getTextChannelById(TC_ADMIN_PRE_BUY_ID),"["+showingPlayer + "] 플레이어에게 찌라시 선택권 부여 완료");
+                        createMsgAndErase(guild.getTextChannelById(TC_ADMIN_PRE_BUY_ID), "[" + showingPlayer + "] 플레이어에게 찌라시 선택권 부여 완료");
                     });
         }
 
@@ -149,11 +191,11 @@ public class GoingUp extends ListenerAdapter {
         List<String> nameList = joinUsers.values().stream().map(Players::getName).toList();
 
         preBuyChannel.sendMessage("찌라시 구매 버튼을 표기할 플레이어를 선택해주세요.")
-                .addComponents(generateButtons("prePlayer_",nameList))
+                .addComponents(generateButtons("prePlayer_", nameList))
                 .queue();
     }
 
-    private void displayAdminConsolePhase(Guild guild){
+    private void displayAdminConsolePhase(Guild guild) {
         TextChannel textChannel = guild.getTextChannelById(TC_ADMIN_CONSOLE_ID);
 
         if (ADMIN_CONSOLE_STATUS_MESSAGE_ID.isEmpty()) {
@@ -171,12 +213,12 @@ public class GoingUp extends ListenerAdapter {
     private void displayPreBuyQuantity(Guild guild) {
         TextChannel textChannel = guild.getTextChannelById(TC_ADMIN_PRE_BUY_ID);
 
-        String nextPri = bank.getNextPriority().isEmpty() ?"구매가능":bank.getNextPriority();
+        String nextPri = bank.getNextPriority().isEmpty() ? "구매가능" : bank.getNextPriority();
 
         StringBuilder stringBuilder = new StringBuilder();
-        stringBuilder.append(" >>> 현재 라운드: "+ currentRound+", ");
-        if(currentRound != 1) {
-            stringBuilder.append("["+ bank.getCurrentPriority()+"]님부터 시작");
+        stringBuilder.append(" >>> 현재 라운드: " + currentRound + ", ");
+        if (currentRound != 1) {
+            stringBuilder.append("[" + bank.getCurrentPriority() + "]님부터 시작");
         }
         stringBuilder.append("\n" +
                 "시안테마파크 - " + bank.getPrePark() + "\n" +
@@ -214,84 +256,69 @@ public class GoingUp extends ListenerAdapter {
         if (eventChannel instanceof TextChannel textChannel) {
             if (textChannel.getParentCategoryId().equals(CATE_WALLET_ID)) { //각자 개인 지갑
                 //뉴스
-                if(buttonId.startsWith("news_")) {
+                if (buttonId.startsWith("news_")) {
                     Players player = joinUsers.get(member);
                     player.incrementSelection();
 
-                    if(player.getSelectionCount() == 2) {
-                        List<ActionRow> disabledRows = disableButtons(event.getMessage().getActionRows());
-
-                        event.editMessage("2개의 기업이 선택되었습니다.")
-                                .setComponents(disabledRows)
-                                .queue(message -> {
-                                    message.deleteOriginal().queueAfter(5, TimeUnit.SECONDS);
-                                });
-                    } else {
-                        event.deferEdit().queue();
-                        List<ActionRow> updatedRows = new ArrayList<>();
-                        for (ActionRow row : event.getMessage().getActionRows()) {
-                            updatedRows.add(ActionRow.of(
-                                    row.getButtons().stream()
-                                            .map(button -> button.getId().equals(buttonId)
-                                                    ? button.asDisabled() : button)
-                                            .toList()));
-                        }
-                        event.getMessage().editMessageComponents(updatedRows).queue();
-                    }
+                    buttonDisableWithSelectionCount(event, player, buttonId);
 
                     //뉴스 사진 보내기
-                    String targetCompany=buttonId.substring(5);
+                    String targetCompany = buttonId.substring(5);
 
                     Optional<Stock> stockOptional = Arrays.stream(Stock.values())
                             .filter(stock -> stock.getName().equals(targetCompany))
                             .findFirst();
 
-                    if(stockOptional.isPresent()) {
-                        String path = imagePath+"/1.뉴스기사/"+stockOptional.get().getPath()+"/"+currentRound+"회차.png";
-
+                    if (stockOptional.isPresent()) {
+                        String path = imagePath + "/1.뉴스기사/" + stockOptional.get().getPath() + "/" + currentRound + "회차.png";
                         sendImgFile(textChannel, path);
                     } else {
                         loggingChannel(guild, "### 오류: 회사 이름이 없습니다.");
                     }
 
-                }
-                else if (buttonId.startsWith("preBuy_")) { //찌라시 선택
+                } else if (buttonId.startsWith("preBuy_")) { //찌라시 선택
                     Players player = joinUsers.get(member);
-                    player.incrementSelection();
 
-                    if(player.getSelectionCount() == 2) {
-                        List<ActionRow> disabledRows = disableButtons(event.getMessage().getActionRows());
-
-                        event.editMessage("2개의 찌라시가 선택되었습니다.")
-                                .setComponents(disabledRows)
-                                .queue(message -> {
-                                    message.deleteOriginal().queueAfter(5, TimeUnit.SECONDS);
-                                });
-                    } else {
-                        event.deferEdit().queue();
-                        List<ActionRow> updatedRows = new ArrayList<>();
-                        for (ActionRow row : event.getMessage().getActionRows()) {
-                            updatedRows.add(ActionRow.of(
-                                    row.getButtons().stream()
-                                            .map(button -> button.getId().equals(buttonId)
-                                            ?button.asDisabled():button).toList()
-                            ));
-                            event.getMessage().editMessageComponents(updatedRows).queue();
-                        }
+                    if (player.getSelectionCount() == 2) {
+                        event.reply("이미 선택이 완료되었습니다.").queue();
+                        buttonDisableWithSelectionCount(event, player, buttonId);
+                        return;
                     }
 
+                    player.incrementSelection();
+                    buttonDisableWithSelectionCount(event, player, buttonId);
+
+                    //금액 차감
+                    int currentVal = Integer.parseInt(currentRound < 4 ? PRE_BUY_PRICE_FIRSTHALF : PRE_BUY_PRICE_SECONDHALF);
+                    player.minusVal(currentVal);
+                    modifyPlayerWallet(guild, player);
+
                     String targetCompany = buttonId.replace("preBuy_", "");
-
-                    //fixme 찌라시전광판 갱신
-
                     Optional<Stock> stockOptional = Arrays.stream(Stock.values())
                             .filter(stock -> stock.getName().equals(targetCompany))
                             .findFirst();
+                    if (stockOptional.isPresent()) {
+                        Stock selectedStock = stockOptional.get();
 
-                    if(stockOptional.isPresent()) {
-                        String path = imagePath+"/2.찌라시/"+stockOptional.get().getPath()+"/"+currentRound+"회차.png";
-
+                        String path = imagePath + "/2.찌라시/" + stockOptional.get().getPath() + "/" + currentRound + "회차.png";
                         sendImgFile(textChannel, path);
+
+                        switch (selectedStock) {
+                            case PARK -> bank.setPrePark(bank.getPrePark() - 1);
+                            case CAPITAL -> bank.setPreCapital(bank.getPreCapital() - 1);
+                            case MCAR -> bank.setPreMCar(bank.getPreMCar() - 1);
+                            case TOUR -> bank.setPreTour(bank.getPreTour() - 1);
+                            case EAT -> bank.setPreEat(bank.getPreEat() - 1);
+                            case SCAR -> bank.setPreSCar(bank.getPreSCar() - 1);
+                            case BANK -> bank.setPreBank(bank.getPreBank() - 1);
+                            case PHARMACY -> bank.setPrePharmacy(bank.getPrePharmacy() - 1);
+                            case DEATH -> bank.setPreDeath(bank.getPreDeath() - 1);
+                            case BUILD -> bank.setPreBuild(bank.getPreBuild() - 1);
+                        }
+
+                        displayPreBuyQuantity(guild);
+                        loggingChannel(guild, "[" + player.getName() + "] 님 찌라시 구매: " + targetCompany);
+
                     } else {
                         loggingChannel(guild, "### 오류: 회사 이름이 없습니다.");
                     }
@@ -301,26 +328,26 @@ public class GoingUp extends ListenerAdapter {
                     String priorityName = buttonId.replace("buyPriority_", "");
                     bank.setNextPriority(priorityName);
                     player.incrementSelection();
-                    //fixme 우선권 카운터 올리기
-                    //fixme 찌라시전광판 갱신
 
-                    event.reply("우선권 구매 완료!").queue(message -> {
-                        message.deleteOriginal().queueAfter(5, TimeUnit.SECONDS);
-                    });
+                    buttonDisableWithSelectionCount(event, player, buttonId);
+                    displayPreBuyQuantity(guild);
+
+                    loggingChannel(guild, "[" + player.getName() + "] 님 우선권 구매");
+                    createMsgAndErase(guild.getTextChannelById(player.getChannelId()), "우선권 구매 완료!");
 
                 }
             } else if (textChannel.getId().equals(TC_ADMIN_CONSOLE_ID)) {
                 adminConsoleButtonInteract(event, buttonId, textChannel);
             } else if (textChannel.getId().equals(TC_ADMIN_PRE_BUY_ID)) {
-                if(buttonId.startsWith("prePlayer_")) {
+                if (buttonId.startsWith("prePlayer_")) {
                     String showingPlayer = buttonId.replace("preBuy_", "");
 
-                    TextInput prePlayerInput = TextInput.create("buyPrice","찌라시 가격을 입력해주세요.",TextInputStyle.SHORT)
+                    TextInput prePlayerInput = TextInput.create("buyPrice", "찌라시 가격을 입력해주세요.", TextInputStyle.SHORT)
                             .setPlaceholder("받을 가격을 입력해주세요.")
-                            .setValue(currentRound<4?PRE_BUY_PRICE_FIRSTHALF:PRE_BUY_PRICE_SECONDHALF)
+                            .setValue(currentRound < 4 ? PRE_BUY_PRICE_FIRSTHALF : PRE_BUY_PRICE_SECONDHALF)
                             .setRequired(true)
                             .build();
-                    Modal modal = Modal.create("prePlayer_"+showingPlayer,"찌라시 가격 선정")
+                    Modal modal = Modal.create("prePlayer_" + showingPlayer, "찌라시 가격 선정")
                             .addActionRow(prePlayerInput)
                             .build();
                     event.replyModal(modal).queue();
@@ -338,7 +365,7 @@ public class GoingUp extends ListenerAdapter {
                     if (member != null && spectatorRole != null) {
                         //이미 참여신청함
                         if (joinUsers.containsKey(member)) {
-                            createMsgAndErase(textChannel, "["+member.getEffectiveName()+"]님은 이미 참가하였습니다.");
+                            createMsgAndErase(textChannel, "[" + member.getEffectiveName() + "]님은 이미 참가하였습니다.");
                             loggingChannel(guild, "### 위험: [" + member.getEffectiveName() + "] 중복 신청");
                         } else {
                             boolean hasSpectatorRole = member.getRoles().contains(spectatorRole);
@@ -384,7 +411,7 @@ public class GoingUp extends ListenerAdapter {
                                 createMsgAndErase(textChannel, "[" + member.getEffectiveName() + "]참가 완료!");
                                 loggingChannel(guild, "[" + member.getEffectiveName() + "] 참가 완료");
 
-                                if(joinUsers.size() == 6) {
+                                if (joinUsers.size() == 6) {
                                     TextChannel adminConsoleTC = guild.getTextChannelById(TC_ADMIN_CONSOLE_ID);
                                     loggingChannel(guild, "6명의 플레이어 참가 완료");
                                 }
@@ -397,7 +424,23 @@ public class GoingUp extends ListenerAdapter {
         }
     }
 
-    private List<ActionRow> disableButtons(List<ActionRow> actionRows) {
+    private void buttonDisableWithSelectionCount(@NotNull ButtonInteractionEvent event, Players player, String buttonId) {
+        if (player.getSelectionCount() == 2) {
+            List<ActionRow> disabledRows = disableAllButtons(event.getMessage().getActionRows());
+
+            event.editMessage("2개 선택 완료")
+                    .setComponents(disabledRows)
+                    .queue(message -> {
+                        message.deleteOriginal().queueAfter(5, TimeUnit.SECONDS);
+                    });
+        } else {
+            event.deferEdit().queue();
+            List<ActionRow> updatedRows = disableOneButton(event.getMessage().getActionRows(), buttonId);
+            event.getMessage().editMessageComponents(updatedRows).queue();
+        }
+    }
+
+    private List<ActionRow> disableAllButtons(List<ActionRow> actionRows) {
         List<ActionRow> disabledRows = new ArrayList<>();
 
         for (ActionRow row : actionRows) {
@@ -408,6 +451,19 @@ public class GoingUp extends ListenerAdapter {
         }
 
         return disabledRows;
+    }
+
+    private List<ActionRow> disableOneButton(List<ActionRow> actionRows, String buttonId) {
+        List<ActionRow> updatedRows = new ArrayList<>();
+        for (ActionRow row : actionRows) {
+            updatedRows.add(ActionRow.of(
+                    row.getButtons().stream()
+                            .map(button -> button.getId().equals(buttonId)
+                                    ? button.asDisabled() : button).toList()
+            ));
+        }
+        return updatedRows;
+
     }
 
     //개인 채널에 있는 지갑 텍스트 생성
@@ -578,13 +634,13 @@ public class GoingUp extends ListenerAdapter {
 
         initTextChannel(textChannel.getGuild(), TC_CHART_ID);
 
-        for(Players player : joinUsers.values()) {
+        for (Players player : joinUsers.values()) {
             modifyPlayerWallet(textChannel.getGuild(), player);
         }
 
 
-        String path1 = imagePath + "/3.주가변동판/"+currentRound+"회차.png";
-        String path2 = imagePath + "/3.주가변동판/"+currentRound+"회차 주가등락.png";
+        String path1 = imagePath + "/3.주가변동판/" + currentRound + "회차.png";
+        String path2 = imagePath + "/3.주가변동판/" + currentRound + "회차 주가등락.png";
 
         //fixme 이 이미지파일이랑 타이밍 이슈나는지 확인필요
         sendImgFile(chatChannel, path1);
@@ -595,19 +651,19 @@ public class GoingUp extends ListenerAdapter {
     private void selectNews(TextChannel textChannel) {
         Guild guild = textChannel.getGuild();
 
-        for(Players player : joinUsers.values()){
+        for (Players player : joinUsers.values()) {
             player.initSelection();
             TextChannel playerChannel = guild.getTextChannelById(player.getChannelId());
 
             playerChannel.sendMessage("## " + currentRound + "라운드 기사선택\n 신문 기사를 확인할 기업 2개를 선택해주세요.")
-                    .addComponents(generateButtons("news_",generateCurrentCompany()))
+                    .addComponents(generateButtons("news_", generateCurrentCompany()))
                     .queue();
         }
 
         currentPhase = Phase.NEWS;
         displayAdminConsolePhase(guild);
 
-        loggingChannel(guild, "페이즈 전환: "+ currentRound + "라운드 기사선택 시작");
+        loggingChannel(guild, "페이즈 전환: " + currentRound + "라운드 기사선택 시작");
     }
 
     private List<String> generateCurrentCompany() {
@@ -620,7 +676,10 @@ public class GoingUp extends ListenerAdapter {
             case 2:
                 currentCompanys = COMPANYS_ROUND2;
                 break;
-            case 3: case 4: case 5: case 6:
+            case 3:
+            case 4:
+            case 5:
+            case 6:
                 currentCompanys = COMPANYS_ALL;
                 break;
             case 7:
@@ -637,27 +696,27 @@ public class GoingUp extends ListenerAdapter {
         long currentTimestamp = Instant.now().getEpochSecond(); // 현재 유닉스 타임스탬프 (초 단위)
         long fiveMinutesLater = currentTimestamp + 300; // 5분 후의 유닉스 타임스탬프
 
-        textChannel.sendMessage(">>> "+currentRound + "라운드 휴식 진행중...\n" +
-                "<t:"+ fiveMinutesLater + ":R> 종료").queue(message -> {
-                    message.delete().queueAfter(310, TimeUnit.SECONDS);
+        textChannel.sendMessage(">>> " + currentRound + "라운드 휴식 진행중...\n" +
+                "<t:" + fiveMinutesLater + ":R> 종료").queue(message -> {
+            message.delete().queueAfter(310, TimeUnit.SECONDS);
         });
 
         TextChannel systemChannel = guild.getTextChannelById(TC_SYSTEM_ID);
-        systemChannel.sendMessage(">>> "+currentRound + "라운드 휴식 진행중...\n" +
-                "<t:"+ fiveMinutesLater + ":R> 종료").queue(message -> {
+        systemChannel.sendMessage(">>> " + currentRound + "라운드 휴식 진행중...\n" +
+                "<t:" + fiveMinutesLater + ":R> 종료").queue(message -> {
             message.delete().queueAfter(310, TimeUnit.SECONDS);
         });
 
         StringBuilder playerVal = new StringBuilder();
-        for(Players player : joinUsers.values()){
+        for (Players player : joinUsers.values()) {
             player.initSelection();
             playerVal.append("\n" + player.getName() + ": ")
                     .append(getTotalAmount(player, currentRound));
         }
 
-        loggingChannel(guild, "페이즈 전환: "+ currentRound + "라운드 휴식 시작");
-        loggingChannel(guild, "```"+currentRound+"라운드 보유 금액" +
-                playerVal+"```");
+        loggingChannel(guild, "페이즈 전환: " + currentRound + "라운드 휴식 시작");
+        loggingChannel(guild, "```" + currentRound + "라운드 보유 금액" +
+                playerVal + "```");
 
         currentPhase = Phase.REST;
         currentRound++;
@@ -668,8 +727,8 @@ public class GoingUp extends ListenerAdapter {
         displayPreBuyQuantity(guild);
 
         TextChannel chartChannel = guild.getTextChannelById(TC_CHART_ID);
-        if(currentRound ==3 || currentRound == 6){
-            String path = imagePath + "/"+currentRound+"공개정보.png";
+        if (currentRound == 3 || currentRound == 6) {
+            String path = imagePath + "/" + currentRound + "공개정보.png";
 
             sendImgFile(chartChannel, path);
         }
@@ -805,9 +864,12 @@ public class GoingUp extends ListenerAdapter {
             initTextChannel(guild, TC_CHART_ID);
             String path = imagePath + "/3.주가변동판/0회차.png";
             TextChannel chatChannel = guild.getTextChannelById(TC_CHART_ID);
-            sendImgFile(chatChannel,path);
+            sendImgFile(chatChannel, path);
 
             //todo 딜러콘솔3개 초기화후 콘솔 버튼 올리기
+            initTextChannel(guild, TC_ADMIN_PRE_BUY_ID);
+            initTextChannel(guild, TC_ADMIN_MAIN_BUY_ID);
+
             ADMIN_CONSOLE_STATUS_MESSAGE_ID = "";
             ADMIN_PRE_BUY_MESSAGE_ID = "";
 
@@ -845,10 +907,10 @@ public class GoingUp extends ListenerAdapter {
     private void sendImgFile(TextChannel textChannel, String path) {
         File imgFile = new File(path);
 
-        if(imgFile.exists() && imgFile.isFile()) {
+        if (imgFile.exists() && imgFile.isFile()) {
             textChannel.sendFiles(FileUpload.fromData(imgFile)).queue();
         } else {
-            loggingChannel(textChannel.getGuild(), "### 오류: "+path+"파일이 존재하지 않습니다.");
+            loggingChannel(textChannel.getGuild(), "### 오류: " + path + "파일이 존재하지 않습니다.");
         }
     }
 
