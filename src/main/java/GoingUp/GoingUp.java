@@ -121,7 +121,7 @@ public class GoingUp extends ListenerAdapter {
 
             initBuyPrice = event.getValue("buyPrice").getAsString();
 
-            walletChannel.sendMessage("## " + currentRound + "라운드 찌라시 선택\n 찌라시를 확인할 기업을 선택해주세요.\n횟수당 ["+initBuyPrice+"]원이 차감됩니다." + priority)
+            walletChannel.sendMessage("## " + currentRound + "라운드 찌라시\n 찌라시를 확인할 기업을 선택해주세요.\n횟수당 ["+initBuyPrice+"]원이 차감됩니다." + priority)
                     .addComponents(actionRows)
                     .addActionRow(Button.success("buyPriority_" + player.getName(), "우선권 구매").withDisabled(!bank.getNextPriority().isEmpty()))
                     .queue(success -> {
@@ -323,6 +323,31 @@ public class GoingUp extends ListenerAdapter {
                         loggingChannel(guild, "### 오류: 회사 이름이 없습니다.");
                     }
 
+                }
+                else if (buttonId.startsWith("preBuyAdd_")) {
+                    event.deferEdit().queue();
+                    Players player = joinUsers.get(member);
+                    String targetCompany = buttonId.replace("preBuyAdd_", "");
+
+                    //금액차감
+                    int currentVal = Integer.parseInt(currentRound < 4? PRE_BUY_PRICE_FIRSTHALF_ADDON: PRE_BUY_PRICE_SECONDHALF_ADDON);
+                    player.minusVal(currentVal);
+                    modifyPlayerWallet(guild, player);
+
+                    List<ActionRow> updatedRows = disableOneButton(event.getMessage().getActionRows(), buttonId);
+                    event.getMessage().editMessageComponents(updatedRows).queue();
+
+                    Optional<Stock> stockOptional = Arrays.stream(Stock.values())
+                            .filter(stock -> stock.getName().equals(targetCompany))
+                            .findFirst();
+
+                    if (stockOptional.isPresent()) {
+                        String path = imagePath + "/2.찌라시/" + stockOptional.get().getPath() + "/" + currentRound + "회차.png";
+                        sendImgFile(textChannel, path);
+                        loggingChannel(guild, "추가 찌라시 구매: ["+player.getName()+"], "+targetCompany);
+                    } else {
+                        loggingChannel(guild, "### 오류: 회사 이름이 없습니다.");
+                    }
                 } else if (buttonId.startsWith("buyPriority_")) { //우선권 구매
                     Players player = joinUsers.get(member);
                     String priorityName = buttonId.replace("buyPriority_", "");
@@ -556,7 +581,8 @@ public class GoingUp extends ListenerAdapter {
                 loggingChannel(textChannel.getGuild(), "## 게임 시작");
                 break;
             case "start_market":
-                //todo
+                event.deferEdit().queue();
+                startMarket(textChannel);
                 break;
             case "close_market":
                 event.deferEdit().queue();
@@ -623,6 +649,25 @@ public class GoingUp extends ListenerAdapter {
                 .queue();
 
         createMsgAndErase(textChannel, "플레이어 참가 버튼 생성 완료!");
+    }
+
+    //장 시작
+    private void startMarket(TextChannel textChannel) {
+        String preBuyAddPrice =  currentRound < 4 ? PRE_BUY_PRICE_FIRSTHALF_ADDON : PRE_BUY_PRICE_SECONDHALF_ADDON;
+        Guild guild = textChannel.getGuild();
+        List<ActionRow> actionRows = generateButtons("preBuyAdd_", generateCurrentCompany());
+
+
+        //추가 찌라시
+        for(Players player : joinUsers.values()){
+            guild.getTextChannelById(player.getChannelId()).sendMessage("## "+currentRound + "라운드 추가 찌라시\n"+
+                    "추가 찌라시를 확인할 기업을 선택해주세요.\n" +
+                    "횟수당 ["+preBuyAddPrice+"]원이 차감됩니다.")
+                    .addComponents(actionRows)
+                    .queue(message -> {
+                        message.delete().queueAfter(305, TimeUnit.SECONDS);
+                    });
+        }
     }
 
 
