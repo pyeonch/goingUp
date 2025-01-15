@@ -119,9 +119,9 @@ public class GoingUp extends ListenerAdapter {
                 actionRows.add(ActionRow.of(buttons));
             }
 
-            String currentPreBuyPrice = currentRound < 4 ? PRE_BUY_PRICE_FIRSTHALF : PRE_BUY_PRICE_SECONDHALF;
+            initBuyPrice = event.getValue("buyPrice").getAsString();
 
-            walletChannel.sendMessage("## " + currentRound + "라운드 찌라시 선택\n 찌라시를 확인할 기업을 선택해주세요.\n횟수당 ["+currentPreBuyPrice+"]원이 차감됩니다." + priority)
+            walletChannel.sendMessage("## " + currentRound + "라운드 찌라시 선택\n 찌라시를 확인할 기업을 선택해주세요.\n횟수당 ["+initBuyPrice+"]원이 차감됩니다." + priority)
                     .addComponents(actionRows)
                     .addActionRow(Button.success("buyPriority_" + player.getName(), "우선권 구매").withDisabled(!bank.getNextPriority().isEmpty()))
                     .queue(success -> {
@@ -279,17 +279,17 @@ public class GoingUp extends ListenerAdapter {
                 } else if (buttonId.startsWith("preBuy_")) { //찌라시 선택
                     Players player = joinUsers.get(member);
 
-                    if (player.getSelectionCount() == 2) {
-                        event.reply("이미 선택이 완료되었습니다.").queue();
-                        buttonDisableWithSelectionCount(event, player, buttonId);
-                        return;
-                    }
+//                    if (player.getSelectionCount() == 2) {
+//                        event.reply("이미 선택이 완료되었습니다.").queue();
+//                        buttonDisableWithSelectionCount(event, player, buttonId);
+//                        return;
+//                    }
 
                     player.incrementSelection();
                     buttonDisableWithSelectionCount(event, player, buttonId);
 
                     //금액 차감
-                    int currentVal = Integer.parseInt(currentRound < 4 ? PRE_BUY_PRICE_FIRSTHALF : PRE_BUY_PRICE_SECONDHALF);
+                    int currentVal = Integer.parseInt(initBuyPrice);
                     player.minusVal(currentVal);
                     modifyPlayerWallet(guild, player);
 
@@ -333,7 +333,7 @@ public class GoingUp extends ListenerAdapter {
                     displayPreBuyQuantity(guild);
 
                     loggingChannel(guild, "[" + player.getName() + "] 님 우선권 구매");
-                    createMsgAndErase(guild.getTextChannelById(player.getChannelId()), "우선권 구매 완료!");
+                    createMsgAndErase(guild.getTextChannelById(player.getChannelId()), ">>> 우선권 구매 완료!");
 
                 }
             } else if (textChannel.getId().equals(TC_ADMIN_CONSOLE_ID)) {
