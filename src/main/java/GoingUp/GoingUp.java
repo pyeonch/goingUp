@@ -3,6 +3,7 @@ package GoingUp;
 import GoingUp.Features.Bank;
 import GoingUp.Features.Players;
 import GoingUp.Features.Stock;
+import GoingUp.Features.StockBuyStatus;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.dv8tion.jda.api.Permission;
@@ -434,9 +435,84 @@ public class GoingUp extends ListenerAdapter {
                                     Button.primary("mainSell_"+targetPlayerName+"_"+targetCompanyName,"판매"))
                             .queue();
                 } else if (buttonId.startsWith("mainBuy_")) {
-                    event.deferEdit().queue();
+                    String[] parts = buttonId.split("_",3);
+                    String targetPlayerName = parts[1];
+                    String targetCompanyName = parts[2];
+
+                    Players player = joinUsers.values().stream().filter(m -> m.getName().equals(targetPlayerName)).findFirst().get();
+
+                    Optional<Stock> stockOptional = Arrays.stream(Stock.values())
+                            .filter(stock -> stock.getName().equals(targetCompanyName))
+                            .findFirst();
+
+                    StockBuyStatus buyableStocks;
+                    if(stockOptional.isPresent()) {
+                        Stock stock = stockOptional.get();
+                        buyableStocks = getBuyableStocks(event, stock, player);
+                    } else {
+                        createMsgAndErase(textChannel, "회사가 없습니다.");
+                        return;
+                    }
+
+                    if(!buyableStocks.isCanProceed()) {
+                        return;
+                    }
+
+                    TextInput mainBuyValInput = TextInput.create("buyVal",targetCompanyName+" 구매",TextInputStyle.SHORT)
+                            .setPlaceholder(buyableStocks.getBuyableStocks()+"주 구매가능")
+                            .setRequired(true)
+                            .build();
+                    Modal modal = Modal.create("mainBuy_"+targetPlayerName+"_"+targetCompanyName, "주 구매")
+                            .addActionRow(mainBuyValInput)
+                            .build();
+                    event.replyModal(modal).queue();
+
                 } else if (buttonId.startsWith("mainSell_")) {
                     event.deferEdit().queue();
+                    String[] parts = buttonId.split("_",3);
+                    String targetPlayerName = parts[1];
+                    String targetCompanyName = parts[2];
+
+                    Players player = joinUsers.values().stream().filter(m -> m.getName().equals(targetPlayerName)).findFirst().get();
+
+                    Optional<Stock> stockOptional = Arrays.stream(Stock.values())
+                            .filter(stock -> stock.getName().equals(targetCompanyName))
+                            .findFirst();
+
+                    int targetCompanyValue = 0;
+                    if(stockOptional.isPresent()) {
+                        Stock stock = stockOptional.get();
+                        switch (stock) {
+                            case PARK -> targetCompanyValue = player.getStock_park();
+                            case CAPITAL -> targetCompanyValue = player.getStock_capital();
+                            case MCAR -> targetCompanyValue = player.getStock_MCar();
+                            case TOUR -> targetCompanyValue = player.getStock_tour();
+                            case EAT -> targetCompanyValue = player.getStock_eat();
+                            case SCAR -> targetCompanyValue = player.getStock_Scar();
+                            case BANK -> targetCompanyValue = player.getStock_bank();
+                            case PHARMACY -> targetCompanyValue = player.getStock_pharmacy();
+                            case DEATH -> targetCompanyValue = player.getStock_death();
+                            case BUILD -> targetCompanyValue = player.getStock_build();
+                        }
+                    } else {
+                        createMsgAndErase(textChannel, "회사가 없습니다.");
+                        return;
+                    }
+
+                    if(targetCompanyValue == 0) {
+                        createMsgAndErase(textChannel, "판매할 주식이 없습니다.");
+                        return;
+                    }
+
+                    TextInput mainSellValInput = TextInput.create("sellVal",targetCompanyName+" 판매", TextInputStyle.SHORT)
+                            .setPlaceholder(targetCompanyValue + "주 판매 가능")
+                            .setRequired(true)
+                            .build();
+                    Modal modal = Modal.create("mainSell_"+targetPlayerName+"_"+targetCompanyName, "주 판매")
+                            .addActionRow(mainSellValInput)
+                            .build();
+                    event.replyModal(modal).queue();
+
                 }
             } else if (textChannel.getId().equals(TC_SYSTEM_ID)) {
 
@@ -507,6 +583,44 @@ public class GoingUp extends ListenerAdapter {
             }
 
         }
+    }
+
+    private StockBuyStatus getBuyableStocks(@NotNull ButtonInteractionEvent event, Stock stock, Players player) {
+        int stockQu = 0;
+        int stockValue;
+
+        int[] initValue = stock.getVal();
+        stockValue = initValue[currentRound - 1];
+
+        switch (stock) {
+            case PARK -> stockQu = bank.getQuPark();
+            case CAPITAL -> stockQu = bank.getQuCapital();
+            case MCAR -> stockQu = bank.getQuMCar();
+            case TOUR -> stockQu = bank.getQuTour();
+            case EAT -> stockQu = bank.getQuEat();
+            case SCAR -> stockQu = bank.getQuSCar();
+            case BANK -> stockQu = bank.getQuBank();
+            case PHARMACY -> stockQu = bank.getQuPharmacy();
+            case DEATH -> stockQu = bank.getQuDeath();
+            case BUILD -> stockQu = bank.getQuBuild();
+        }
+
+        if (player.getVal() < stockValue) {
+            event.reply("잔액이 없습니다.").queue(message -> {
+                message.deleteOriginal().queueAfter(5,TimeUnit.SECONDS);
+            });
+            return new StockBuyStatus(false, 0);
+        } else if (stockQu == 0) {
+            event.reply("잔고가 없습니다.").queue(message -> {
+                message.deleteOriginal().queueAfter(5,TimeUnit.SECONDS);
+            });
+            return new StockBuyStatus(false, 0);
+        }
+
+        int playerValPerstockVal = player.getVal() / stockValue;
+        if(playerValPerstockVal > stockQu)
+            playerValPerstockVal = stockQu;
+        return new StockBuyStatus(true, playerValPerstockVal);
     }
 
     private void buttonDisableWithSelectionCount(@NotNull ButtonInteractionEvent event, Players player, String buttonId) {
@@ -903,7 +1017,7 @@ public class GoingUp extends ListenerAdapter {
         }
 
         TextInput quantityInput = TextInput.create("round", "변경할 라운드 입력", TextInputStyle.SHORT)
-                .setPlaceholder("해당 라운드의 찌라시 구매 페이즈로 전환됩니다.")
+                .setPlaceholder("1~7 입력해주세요.")
                 .setMaxLength(1)
                 .setRequired(true)
                 .build();
