@@ -50,4 +50,32 @@ public class Players {
     public void  plusVal(int price) {
         this.val += price;
     }
+    public void plusStock(int val, Stock stock) {
+        switch (stock) {
+            case PARK -> stock_park += val;
+            case CAPITAL -> stock_capital += val;
+            case MCAR -> stock_MCar += val;
+            case TOUR -> stock_tour += val;
+            case EAT -> stock_eat += val;
+            case SCAR -> stock_Scar += val;
+            case BANK -> stock_bank += val;
+            case PHARMACY -> stock_pharmacy += val;
+            case DEATH -> stock_death += val;
+            case BUILD -> stock_build += val;
+        }
+    }
+    public void minusStock(int val, Stock stock) {
+        switch (stock) {
+            case PARK -> stock_park -= val;
+            case CAPITAL -> stock_capital -= val;
+            case MCAR -> stock_MCar -= val;
+            case TOUR -> stock_tour -= val;
+            case EAT -> stock_eat -= val;
+            case SCAR -> stock_Scar -= val;
+            case BANK -> stock_bank -= val;
+            case PHARMACY -> stock_pharmacy -= val;
+            case DEATH -> stock_death -= val;
+            case BUILD -> stock_build -= val;
+        }
+    }
 }

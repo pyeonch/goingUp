@@ -130,8 +130,63 @@ public class GoingUp extends ListenerAdapter {
                     });
         }
 
+        else if (event.getModalId().startsWith("mainBuy_")) {
+            event.deferEdit().queue();
+
+            String mainBuyValInputString = event.getValue("buyVal").getAsString();
+            int mainBuyValInput = Integer.parseInt(mainBuyValInputString);
+            TextChannel textChannel = guild.getTextChannelById(event.getChannelId());
+
+            String[] parts = event.getModalId().split("_",3);
+            String targetPlayerName = parts[1];
+            String targetCompanyName = parts[2];
+
+            Players player = joinUsers.values().stream().filter(m -> m.getName().equals(targetPlayerName)).findFirst().get();
+            TextChannel playerChannel = guild.getTextChannelById(player.getChannelId());
+
+            Optional<Stock> stockOptional = Arrays.stream(Stock.values())
+                    .filter(stock -> stock.getName().equals(targetCompanyName))
+                    .findFirst();
+
+            StockBuyStatus buyStatus;
+            int stockPrice;
+            if(stockOptional.isPresent()) {
+                Stock stock = stockOptional.get();
+                buyStatus = getBuyableStocks(stock, player);
+
+                int[] initValue = stock.getVal();
+                stockPrice = initValue[currentRound - 1];
+
+                if (buyStatus.getBuyableStocks() < mainBuyValInput) {
+                    createMsgAndErase(textChannel, "현재 재고보다 초과한 값을 입력하였습니다.");
+                    return;
+                }
+
+                player.minusVal(stockPrice * mainBuyValInput);
+                player.plusStock(mainBuyValInput, stock);
+            } else {
+                createMsgAndErase(textChannel, "회사가 없습니다.");
+                return;
+            }
+
+            modifyPlayerWallet(guild, player);
+            //초기단계로 돌아가기
+
+        }
+
+        else if (event.getModalId().startsWith("mainSell_")) {
+            event.deferEdit().queue();
+
+            String mainSellValInput = event.getValue("sellVal").getAsString();
+            TextChannel textChannel = guild.getTextChannelById(event.getChannelId());
+
+            String[] parts = event.getModalId().split("_",3);
+            String targetPlayerName = parts[1];
+            String targetCompanyName = parts[2];
+        }
+
         //라운드 강제변경
-        if (event.getModalId().equals("input_round")) {
+        else if (event.getModalId().equals("input_round")) {
             event.deferEdit().queue();
 
             String newRound = event.getValue("round").getAsString();
@@ -448,13 +503,13 @@ public class GoingUp extends ListenerAdapter {
                     StockBuyStatus buyableStocks;
                     if(stockOptional.isPresent()) {
                         Stock stock = stockOptional.get();
-                        buyableStocks = getBuyableStocks(event, stock, player);
+                        buyableStocks = getBuyableStocks(stock, player);
                     } else {
                         createMsgAndErase(textChannel, "회사가 없습니다.");
                         return;
                     }
 
-                    if(!buyableStocks.isCanProceed()) {
+                    if(buyableStocks.getFailCause() != null) {
                         return;
                     }
 
@@ -585,7 +640,7 @@ public class GoingUp extends ListenerAdapter {
         }
     }
 
-    private StockBuyStatus getBuyableStocks(@NotNull ButtonInteractionEvent event, Stock stock, Players player) {
+    private StockBuyStatus getBuyableStocks(Stock stock, Players player) {
         int stockQu = 0;
         int stockValue;
 
@@ -606,21 +661,15 @@ public class GoingUp extends ListenerAdapter {
         }
 
         if (player.getVal() < stockValue) {
-            event.reply("잔액이 없습니다.").queue(message -> {
-                message.deleteOriginal().queueAfter(5,TimeUnit.SECONDS);
-            });
-            return new StockBuyStatus(false, 0);
+            return new StockBuyStatus("잔액이 없습니다.", 0);
         } else if (stockQu == 0) {
-            event.reply("잔고가 없습니다.").queue(message -> {
-                message.deleteOriginal().queueAfter(5,TimeUnit.SECONDS);
-            });
-            return new StockBuyStatus(false, 0);
+            return new StockBuyStatus("잔고가 없습니다.", 0);
         }
 
         int playerValPerstockVal = player.getVal() / stockValue;
         if(playerValPerstockVal > stockQu)
             playerValPerstockVal = stockQu;
-        return new StockBuyStatus(true, playerValPerstockVal);
+        return new StockBuyStatus(null, playerValPerstockVal);
     }
 
     private void buttonDisableWithSelectionCount(@NotNull ButtonInteractionEvent event, Players player, String buttonId) {
