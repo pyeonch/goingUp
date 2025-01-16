@@ -195,6 +195,17 @@ public class GoingUp extends ListenerAdapter {
                 .queue();
     }
 
+    private void adminMainBuyButtons(TextChannel textChannel) {
+        TextChannel mainBuyChannel = textChannel.getGuild().getTextChannelById(TC_ADMIN_MAIN_BUY_ID);
+
+        List<String> nameList = joinUsers.values().stream().map(Players::getName).toList();
+
+        mainBuyChannel.sendMessage("구매/판매할 플레이어를 선택해주세요.")
+                .addComponents(generateButtons("mainPlayer_", nameList))
+                .queue();
+
+    }
+
     private void displayAdminConsolePhase(Guild guild) {
         TextChannel textChannel = guild.getTextChannelById(TC_ADMIN_CONSOLE_ID);
 
@@ -216,22 +227,22 @@ public class GoingUp extends ListenerAdapter {
         String nextPri = bank.getNextPriority().isEmpty() ? "구매가능" : bank.getNextPriority();
 
         StringBuilder stringBuilder = new StringBuilder();
-        stringBuilder.append(" >>> 현재 라운드: " + currentRound + ", ");
+        stringBuilder.append("``` 현재 라운드: " + currentRound + ", ");
         if (currentRound != 1) {
             stringBuilder.append("[" + bank.getCurrentPriority() + "]님부터 시작");
         }
         stringBuilder.append("\n" +
-                "시안테마파크 - " + bank.getPrePark() + "\n" +
-                "돈내놔캐피탈 - " + bank.getPreCapital() + "\n" +
-                "막달려자동차 - " + bank.getPreMCar() + "\n" +
-                "두발로여행사 - " + bank.getPreTour() + "\n" +
-                "효심먹거리투어 - " + bank.getPreEat() + "\n" +
-                "신중자동차 - " + bank.getPreSCar() + "\n" +
-                "맡겨봐은행 - " + bank.getPreBank() + "\n" +
-                "다살려제약 - " + bank.getPrePharmacy() + "\n" +
-                "애프터데스상조 - " + bank.getPreDeath() + "\n" +
-                "잘살아건설 - " + bank.getPreBuild() + "\n" +
-                "다음 라운드 우선권 - " + nextPri);
+                "시안테마파크: " + bank.getPrePark() + "\n" +
+                "돈내놔캐피탈: " + bank.getPreCapital() + "\n" +
+                "막달려자동차: " + bank.getPreMCar() + "\n" +
+                "두발로여행사: " + bank.getPreTour() + "\n" +
+                "효심먹거리투어: " + bank.getPreEat() + "\n" +
+                "신중자동차: " + bank.getPreSCar() + "\n" +
+                "맡겨봐은행: " + bank.getPreBank() + "\n" +
+                "다살려제약: " + bank.getPrePharmacy() + "\n" +
+                "애프터데스상조: " + bank.getPreDeath() + "\n" +
+                "잘살아건설: " + bank.getPreBuild() + "\n" +
+                "다음 라운드 우선권: " + nextPri+"```");
 
 
         if (ADMIN_PRE_BUY_MESSAGE_ID.isEmpty()) {
@@ -278,6 +289,7 @@ public class GoingUp extends ListenerAdapter {
 
                 } else if (buttonId.startsWith("preBuy_")) { //찌라시 선택
                     Players player = joinUsers.get(member);
+                    int currentVal = Integer.parseInt(initBuyPrice);
 
 //                    if (player.getSelectionCount() == 2) {
 //                        event.reply("이미 선택이 완료되었습니다.").queue();
@@ -285,11 +297,18 @@ public class GoingUp extends ListenerAdapter {
 //                        return;
 //                    }
 
+                    if(player.getVal() < currentVal) {
+                        event.deferEdit().queue();
+                        createMsgAndErase(guild.getTextChannelById(player.getChannelId()),"잔액이 없습니다!");
+                        loggingChannel(guild, "위험: ["+player.getName()+"] 님 찌라시 구매 실패, 잔액 없음");
+                        return;
+                    }
+
                     player.incrementSelection();
                     buttonDisableWithSelectionCount(event, player, buttonId);
 
                     //금액 차감
-                    int currentVal = Integer.parseInt(initBuyPrice);
+
                     player.minusVal(currentVal);
                     modifyPlayerWallet(guild, player);
 
@@ -331,6 +350,13 @@ public class GoingUp extends ListenerAdapter {
 
                     //금액차감
                     int currentVal = Integer.parseInt(currentRound < 4? PRE_BUY_PRICE_FIRSTHALF_ADDON: PRE_BUY_PRICE_SECONDHALF_ADDON);
+
+                    if(player.getVal() < currentVal) {
+                        createMsgAndErase(guild.getTextChannelById(player.getChannelId()), "잔액이 없습니다!");
+                        loggingChannel(guild, "위험: ["+player.getName()+"] 님 의 추가 찌라시 구매 실패, 잔액없음");
+                        return;
+                    }
+
                     player.minusVal(currentVal);
                     modifyPlayerWallet(guild, player);
 
@@ -378,6 +404,40 @@ public class GoingUp extends ListenerAdapter {
                     event.replyModal(modal).queue();
                 }
 
+            } else if (textChannel.getId().equals(TC_ADMIN_MAIN_BUY_ID)) {
+                if (buttonId.startsWith("mainPlayer_")) {
+                    event.deferEdit().queue();
+
+                    String targetPlayerName = buttonId.replace("mainPlayer_", "");
+                    Players targetPlayer = joinUsers.values().stream().filter(m -> m.getName().equals(targetPlayerName)).findFirst().get();
+
+                    textChannel.sendMessage(generatePlayerWalletMessage(targetPlayer)).queue();
+                    //todo 몇주 구매가능?
+
+                    event.getMessage().editMessageComponents(disableAllButtons(event.getMessage().getActionRows())).queue();
+
+                    textChannel.sendMessage("구매/판매할 기업을 선택해주세요.")
+                            .addComponents(generateButtons("mainCompany_"+targetPlayerName+"_",generateCurrentCompany()))
+                            .queue();
+                } else if (buttonId.startsWith("mainCompany_")) {
+                    event.deferEdit().queue();
+
+                    String[] parts = buttonId.split("_",3);
+                    String targetPlayerName = parts[1];
+                    String targetCompanyName = parts[2];
+
+                    event.getMessage().editMessageComponents(disableAllButtons(event.getMessage().getActionRows())).queue();
+
+                    textChannel.sendMessage("구매/판매 여부를 선택해주세요.")
+                            .addActionRow(
+                                    Button.primary("mainBuy_"+targetPlayerName+"_"+targetCompanyName,"구매"),
+                                    Button.primary("mainSell_"+targetPlayerName+"_"+targetCompanyName,"판매"))
+                            .queue();
+                } else if (buttonId.startsWith("mainBuy_")) {
+                    event.deferEdit().queue();
+                } else if (buttonId.startsWith("mainSell_")) {
+                    event.deferEdit().queue();
+                }
             } else if (textChannel.getId().equals(TC_SYSTEM_ID)) {
 
                 //플레이어 참가 버튼
@@ -532,16 +592,16 @@ public class GoingUp extends ListenerAdapter {
 
         return "```[" + player.getName() + "] 님의 총 금액은 [" + totalAmount + "]원 입니다.\n" +
                 "당신의 잔액은 [" + player.getVal() + "]원 입니다. \n\n" +
-                "시안테마파크 - " + player.getStock_park() + "주\n" +
-                "돈내놔캐피탈 - " + player.getStock_capital() + "주\n" +
-                "막달려자동차 - " + player.getStock_MCar() + "주\n" +
-                "두발로여행사 - " + player.getStock_tour() + "주\n" +
-                "효심먹거리투어 - " + player.getStock_eat() + "주\n" +
-                "신중자동차 - " + player.getStock_Scar() + "주\n" +
-                "맡겨봐은행 - " + player.getStock_bank() + "주\n" +
-                "다살려제약 - " + player.getStock_pharmacy() + "주\n" +
-                "애프터데스상조 - " + player.getStock_death() + "주\n" +
-                "잘살아건설 - " + player.getStock_build() + "주```";
+                "시안테마파크: " + player.getStock_park() + "주\n" +
+                "돈내놔캐피탈: " + player.getStock_capital() + "주\n" +
+                "막달려자동차: " + player.getStock_MCar() + "주\n" +
+                "두발로여행사: " + player.getStock_tour() + "주\n" +
+                "효심먹거리투어: " + player.getStock_eat() + "주\n" +
+                "신중자동차: " + player.getStock_Scar() + "주\n" +
+                "맡겨봐은행: " + player.getStock_bank() + "주\n" +
+                "다살려제약: " + player.getStock_pharmacy() + "주\n" +
+                "애프터데스상조: " + player.getStock_death() + "주\n" +
+                "잘살아건설: " + player.getStock_build() + "주```";
     }
 
     private static int getTotalAmount(Players player, int targetRound) {
@@ -576,6 +636,7 @@ public class GoingUp extends ListenerAdapter {
                 displayPreBuyQuantity(textChannel.getGuild());
 
                 adminPreBuyButtons(textChannel);
+                adminMainBuyButtons(textChannel);
 
                 createMsgAndErase(textChannel, "게임 시작!");
                 loggingChannel(textChannel.getGuild(), "## 게임 시작");
@@ -653,6 +714,7 @@ public class GoingUp extends ListenerAdapter {
 
     //장 시작
     private void startMarket(TextChannel textChannel) {
+        currentPhase = Phase.OPEN;
         String preBuyAddPrice =  currentRound < 4 ? PRE_BUY_PRICE_FIRSTHALF_ADDON : PRE_BUY_PRICE_SECONDHALF_ADDON;
         Guild guild = textChannel.getGuild();
         List<ActionRow> actionRows = generateButtons("preBuyAdd_", generateCurrentCompany());
@@ -962,14 +1024,14 @@ public class GoingUp extends ListenerAdapter {
     //메세지 생성 후 3초 후 삭제
     private void createMsgAndErase(TextChannel channel, String msg) {
         channel.sendMessage(msg).queue(message -> {
-            message.delete().queueAfter(3, TimeUnit.SECONDS);
+            message.delete().queueAfter(5, TimeUnit.SECONDS);
         });
     }
 
     //메세지 수정 및 3초 후 삭제
     private void editMsgAndErase(Message message, String replyText) {
         message.editMessage(replyText).queue(editedMessage -> {
-            editedMessage.delete().queueAfter(3, TimeUnit.SECONDS);
+            editedMessage.delete().queueAfter(5, TimeUnit.SECONDS);
         });
     }
 
