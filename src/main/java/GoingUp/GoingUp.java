@@ -171,7 +171,8 @@ public class GoingUp extends ListenerAdapter {
                 stockPrice = initValue[currentRound - 1];
 
                 if (buyStatus.getBuyableStocks() < mainBuyValInput) {
-                    createMsgAndErase(textChannel, "현재 재고보다 초과한 값을 입력하였습니다.");
+                    createMsgAndErase(textChannel, "현재 재고보다 큰 값을 입력하였습니다.");
+                    loggingChannel(guild, "위험: ["+targetPlayerName+"]님이 "+targetCompanyName+" 구매 중 재고 부족");
                     return;
                 }
 
@@ -196,18 +197,76 @@ public class GoingUp extends ListenerAdapter {
                 });
             },3,TimeUnit.SECONDS);
 
-
-
         }
 
         else if (event.getModalId().startsWith("mainSell_")) {
             event.deferEdit().queue();
 
-            String mainSellValInput = event.getValue("sellVal").getAsString();
+            int mainSellValInput;
+            try{
+                mainSellValInput = Integer.parseInt(event.getValue("sellVal").getAsString());
+            }catch (NumberFormatException e) {
+                createMsgAndErase(textChannel, ">>> 주식 판매 실패: 숫자를 입력하세요.");
+                loggingChannel(guild, "위험: 주식 판매 실패, 숫자 이외의 값 입력");
+                return;
+            }
 
             String[] parts = event.getModalId().split("_",3);
             String targetPlayerName = parts[1];
             String targetCompanyName = parts[2];
+
+            Players player = joinUsers.values().stream().filter(m -> m.getName().equals(targetPlayerName)).findFirst().get();
+
+            Optional<Stock> stockOptional = Arrays.stream(Stock.values())
+                    .filter(stock -> stock.getName().equals(targetCompanyName))
+                    .findFirst();
+
+            int stockPrice;
+            if(stockOptional.isPresent()) {
+                Stock stock = stockOptional.get();
+
+                int stockValue = 0;
+                switch (stock) {
+                    case PARK -> stockValue = player.getStock_park();
+                    case CAPITAL -> stockValue = player.getStock_capital();
+                    case MCAR -> stockValue = player.getStock_MCar();
+                    case TOUR -> stockValue = player.getStock_tour();
+                    case EAT -> stockValue = player.getStock_eat();
+                    case SCAR -> stockValue = player.getStock_Scar();
+                    case BANK -> stockValue = player.getStock_bank();
+                    case PHARMACY -> stockValue = player.getStock_pharmacy();
+                    case DEATH -> stockValue = player.getStock_death();
+                    case BUILD -> stockValue = player.getStock_build();
+                }
+
+                if(stockValue < mainSellValInput) {
+                    createMsgAndErase(textChannel, "현재 보유주보다 큰 값을 입력하였습니다.");
+                    loggingChannel(guild, "위험: ["+targetPlayerName+"]님이 "+targetCompanyName+" 판매 중 보유량보다 큰 값 입력");
+                    return;
+                }
+
+                int[] initValue = stock.getVal();
+                stockPrice = initValue[currentRound - 1];
+
+                player.minusStock(mainSellValInput, stock);
+                player.plusVal(stockPrice * mainSellValInput);
+            } else {
+                createMsgAndErase(textChannel, "회사가 없습니다.");
+                return;
+            }
+
+            modifyPlayerWallet(guild, player);
+
+            textChannel.sendMessage("["+targetCompanyName+"]주 "+mainSellValInput+"개 판매 완료!\n지갑을 확인해주세요.").queue();
+
+            ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
+            scheduler.schedule(() -> {
+                initTextChannel(guild, event.getChannelId());
+                textChannel.getIterableHistory().takeAsync(100).thenAccept(messages -> {
+                    adminMainBuyButtons(guild);
+                });
+            },3,TimeUnit.SECONDS);
+
         }
 
         //라운드 강제변경
@@ -533,6 +592,7 @@ public class GoingUp extends ListenerAdapter {
                     }
 
                     if(buyableStocks.getFailCause() != null) {
+                        createMsgAndErase(textChannel, buyableStocks.getFailCause());
                         return;
                     }
 
@@ -578,7 +638,7 @@ public class GoingUp extends ListenerAdapter {
                     }
 
                     if(targetCompanyValue == 0) {
-                        createMsgAndErase(textChannel, "판매할 주식이 없습니다.");
+                        createMsgAndErase(textChannel, "판매 실패: 판매할 주식이 없습니다.");
                         return;
                     }
 
