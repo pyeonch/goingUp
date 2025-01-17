@@ -30,6 +30,8 @@ import org.jetbrains.annotations.NotNull;
 import java.io.File;
 import java.time.Instant;
 import java.util.*;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -69,11 +71,20 @@ public class GoingUp extends ListenerAdapter {
     @Override
     public void onModalInteraction(@NotNull ModalInteractionEvent event) {
         Guild guild = event.getGuild();
+        TextChannel textChannel = event.getGuild().getTextChannelById(event.getChannelId());
 
         if (event.getModalId().startsWith("prePlayer")) {
             event.deferEdit().queue();
             String showingPlayer = event.getModalId().replace("prePlayer_", "");
             initBuyPrice = event.getValue("buyPrice").getAsString();
+
+            try {
+                int a = Integer.parseInt(initBuyPrice);
+            } catch (NumberFormatException e) {
+                createMsgAndErase(textChannel, ">>> 찌라시 버튼 생성 실패: 숫자를 입력하세요.");
+                loggingChannel(guild,"위험: 찌라시 버튼 생성 실패, 숫자 이외의 값 입력");
+                return;
+            }
 
             Players player = joinUsers.values().stream().filter(m -> m.getName().equals(showingPlayer)).findFirst().get();
             TextChannel walletChannel = guild.getTextChannelById(player.getChannelId());
@@ -120,8 +131,6 @@ public class GoingUp extends ListenerAdapter {
                 actionRows.add(ActionRow.of(buttons));
             }
 
-            initBuyPrice = event.getValue("buyPrice").getAsString();
-
             walletChannel.sendMessage("## " + currentRound + "라운드 찌라시\n 찌라시를 확인할 기업을 선택해주세요.\n횟수당 ["+initBuyPrice+"]원이 차감됩니다." + priority)
                     .addComponents(actionRows)
                     .addActionRow(Button.success("buyPriority_" + player.getName(), "우선권 구매").withDisabled(!bank.getNextPriority().isEmpty()))
@@ -133,16 +142,20 @@ public class GoingUp extends ListenerAdapter {
         else if (event.getModalId().startsWith("mainBuy_")) {
             event.deferEdit().queue();
 
-            String mainBuyValInputString = event.getValue("buyVal").getAsString();
-            int mainBuyValInput = Integer.parseInt(mainBuyValInputString);
-            TextChannel textChannel = guild.getTextChannelById(event.getChannelId());
+            int mainBuyValInput;
+            try {
+                mainBuyValInput = Integer.parseInt(event.getValue("buyVal").getAsString());
+            } catch (NumberFormatException e) {
+                createMsgAndErase(textChannel, ">>> 주식 구매 실패: 숫자를 입력하세요.");
+                loggingChannel(guild,"위험: 주식 구매 실패, 숫자 이외의 값 입력");
+                return;
+            }
 
             String[] parts = event.getModalId().split("_",3);
             String targetPlayerName = parts[1];
             String targetCompanyName = parts[2];
 
             Players player = joinUsers.values().stream().filter(m -> m.getName().equals(targetPlayerName)).findFirst().get();
-            TextChannel playerChannel = guild.getTextChannelById(player.getChannelId());
 
             Optional<Stock> stockOptional = Arrays.stream(Stock.values())
                     .filter(stock -> stock.getName().equals(targetCompanyName))
@@ -164,13 +177,26 @@ public class GoingUp extends ListenerAdapter {
 
                 player.minusVal(stockPrice * mainBuyValInput);
                 player.plusStock(mainBuyValInput, stock);
+
+                loggingChannel(guild,"["+player.getName()+"] 님 주식 구매: "+stock.getName()+", "+mainBuyValInput+"주");
             } else {
                 createMsgAndErase(textChannel, "회사가 없습니다.");
                 return;
             }
 
             modifyPlayerWallet(guild, player);
-            //초기단계로 돌아가기
+
+            textChannel.sendMessage("["+targetCompanyName+"]주 "+mainBuyValInput+"개 구매 완료!\n지갑을 확인해주세요.").queue();
+
+            ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
+            scheduler.schedule(() -> {
+                initTextChannel(guild, event.getChannelId());
+                textChannel.getIterableHistory().takeAsync(100).thenAccept(messages -> {
+                    adminMainBuyButtons(guild);
+                });
+            },3,TimeUnit.SECONDS);
+
+
 
         }
 
@@ -178,7 +204,6 @@ public class GoingUp extends ListenerAdapter {
             event.deferEdit().queue();
 
             String mainSellValInput = event.getValue("sellVal").getAsString();
-            TextChannel textChannel = guild.getTextChannelById(event.getChannelId());
 
             String[] parts = event.getModalId().split("_",3);
             String targetPlayerName = parts[1];
@@ -190,7 +215,6 @@ public class GoingUp extends ListenerAdapter {
             event.deferEdit().queue();
 
             String newRound = event.getValue("round").getAsString();
-            TextChannel textChannel = guild.getTextChannelById(event.getChannelId());
 
             try {
                 int round = Integer.parseInt(newRound);
@@ -241,8 +265,8 @@ public class GoingUp extends ListenerAdapter {
         }
     }
 
-    private void adminPreBuyButtons(TextChannel textChannel) {
-        TextChannel preBuyChannel = textChannel.getGuild().getTextChannelById(TC_ADMIN_PRE_BUY_ID);
+    private void adminPreBuyButtons(Guild guild) {
+        TextChannel preBuyChannel = guild.getTextChannelById(TC_ADMIN_PRE_BUY_ID);
 
         List<String> nameList = joinUsers.values().stream().map(Players::getName).toList();
 
@@ -251,8 +275,8 @@ public class GoingUp extends ListenerAdapter {
                 .queue();
     }
 
-    private void adminMainBuyButtons(TextChannel textChannel) {
-        TextChannel mainBuyChannel = textChannel.getGuild().getTextChannelById(TC_ADMIN_MAIN_BUY_ID);
+    private void adminMainBuyButtons(Guild guild) {
+        TextChannel mainBuyChannel = guild.getTextChannelById(TC_ADMIN_MAIN_BUY_ID);
 
         List<String> nameList = joinUsers.values().stream().map(Players::getName).toList();
 
@@ -416,8 +440,7 @@ public class GoingUp extends ListenerAdapter {
                     player.minusVal(currentVal);
                     modifyPlayerWallet(guild, player);
 
-                    List<ActionRow> updatedRows = disableOneButton(event.getMessage().getActionRows(), buttonId);
-                    event.getMessage().editMessageComponents(updatedRows).queue();
+                    disableOneButton(event.getMessage().getActionRows(), buttonId, event);
 
                     Optional<Stock> stockOptional = Arrays.stream(Stock.values())
                             .filter(stock -> stock.getName().equals(targetCompany))
@@ -683,8 +706,7 @@ public class GoingUp extends ListenerAdapter {
                     });
         } else {
             event.deferEdit().queue();
-            List<ActionRow> updatedRows = disableOneButton(event.getMessage().getActionRows(), buttonId);
-            event.getMessage().editMessageComponents(updatedRows).queue();
+            disableOneButton(event.getMessage().getActionRows(), buttonId, event);
         }
     }
 
@@ -701,7 +723,7 @@ public class GoingUp extends ListenerAdapter {
         return disabledRows;
     }
 
-    private List<ActionRow> disableOneButton(List<ActionRow> actionRows, String buttonId) {
+    private void disableOneButton(List<ActionRow> actionRows, String buttonId, ButtonInteractionEvent event) {
         List<ActionRow> updatedRows = new ArrayList<>();
         for (ActionRow row : actionRows) {
             updatedRows.add(ActionRow.of(
@@ -710,8 +732,7 @@ public class GoingUp extends ListenerAdapter {
                                     ? button.asDisabled() : button).toList()
             ));
         }
-        return updatedRows;
-
+        event.getMessage().editMessageComponents(updatedRows).queue();
     }
 
     //개인 채널에 있는 지갑 텍스트 생성
@@ -789,17 +810,21 @@ public class GoingUp extends ListenerAdapter {
         switch (buttonId) {
             case "join_player":
                 event.deferEdit().queue();
+                disableOneButton(event.getMessage().getActionRows(), buttonId, event);
                 joinPlayerButtons(event, textChannel);
                 break;
             case "game_start":
                 event.deferEdit().queue();
                 currentPhase = Phase.REST;
                 bank = new Bank();
+
+                disableOneButton(event.getMessage().getActionRows(), buttonId, event);
+
                 displayAdminConsolePhase(textChannel.getGuild());
                 displayPreBuyQuantity(textChannel.getGuild());
 
-                adminPreBuyButtons(textChannel);
-                adminMainBuyButtons(textChannel);
+                adminPreBuyButtons(textChannel.getGuild());
+                adminMainBuyButtons(textChannel.getGuild());
 
                 createMsgAndErase(textChannel, "게임 시작!");
                 loggingChannel(textChannel.getGuild(), "## 게임 시작");
@@ -878,6 +903,7 @@ public class GoingUp extends ListenerAdapter {
     //장 시작
     private void startMarket(TextChannel textChannel) {
         currentPhase = Phase.OPEN;
+        displayAdminConsolePhase(textChannel.getGuild());
         String preBuyAddPrice =  currentRound < 4 ? PRE_BUY_PRICE_FIRSTHALF_ADDON : PRE_BUY_PRICE_SECONDHALF_ADDON;
         Guild guild = textChannel.getGuild();
         List<ActionRow> actionRows = generateButtons("preBuyAdd_", generateCurrentCompany());
@@ -900,6 +926,7 @@ public class GoingUp extends ListenerAdapter {
     private void closeMarket(TextChannel textChannel) {
         TextChannel chatChannel = textChannel.getGuild().getTextChannelById(TC_CHART_ID);
         currentPhase = Phase.CLOSED;
+        displayAdminConsolePhase(textChannel.getGuild());
         isRoundEnd = true;
 
         initTextChannel(textChannel.getGuild(), TC_CHART_ID);
@@ -1136,16 +1163,21 @@ public class GoingUp extends ListenerAdapter {
             TextChannel chatChannel = guild.getTextChannelById(TC_CHART_ID);
             sendImgFile(chatChannel, path);
 
-            //todo 딜러콘솔3개 초기화후 콘솔 버튼 올리기
             initTextChannel(guild, TC_ADMIN_PRE_BUY_ID);
             initTextChannel(guild, TC_ADMIN_MAIN_BUY_ID);
+            initTextChannel(guild, TC_ADMIN_CONSOLE_ID);
+
+            TextChannel adminConsoleChannel = guild.getTextChannelById(TC_ADMIN_CONSOLE_ID);
+            adminConsoleChannel.getIterableHistory().takeAsync(100).thenAccept(messages -> {
+                adminConsoleButtons(textChannel);
+            });
 
             ADMIN_CONSOLE_STATUS_MESSAGE_ID = "";
             ADMIN_PRE_BUY_MESSAGE_ID = "";
 
             joinUsers.clear();
 
-            editMsgAndErase(message, ">>> 게임 초기화 완료!");
+            message.editMessage(">>> 게임 초기화 완료!").queue();
             loggingChannel(guild, "게임 초기화 완료");
         });
     }
