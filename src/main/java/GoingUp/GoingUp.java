@@ -52,7 +52,30 @@ public class GoingUp extends ListenerAdapter {
 
     public String initBuyPrice = "";
 
-    static String imagePath = "src/main/resources/";
+    static String imagePath = "src/main/resources";
+
+    static BootPath bootPath;
+
+    static {
+        String bootPathEnv = System.getenv("BOOT_PATH");
+
+        if(bootPathEnv != null) {
+            try{
+                System.out.println("BOOT_PATH: "+bootPathEnv);
+                bootPath = BootPath.valueOf(bootPathEnv.toUpperCase());
+
+                if(bootPath == BootPath.DOCKER) {
+                    imagePath = "/app/resources";
+                }
+            } catch (IllegalArgumentException e) {
+                System.err.println("Invalid BOOT_PATH value: "+ bootPathEnv);
+                bootPath = BootPath.LOCAL;
+            }
+        } else {
+            System.err.println("BOOT_PATH not set");
+            bootPath = BootPath.LOCAL;
+        }
+    }
 
     @Override
     public void onMessageReceived(@NotNull MessageReceivedEvent event) {
@@ -166,6 +189,11 @@ public class GoingUp extends ListenerAdapter {
             if(stockOptional.isPresent()) {
                 Stock stock = stockOptional.get();
                 buyStatus = getBuyableStocks(stock, player);
+
+                if(buyStatus.getFailCause() != null) {
+                    createMsgAndErase(textChannel, buyStatus.getFailCause());
+                    return;
+                }
 
                 int[] initValue = stock.getVal();
                 stockPrice = initValue[currentRound - 1];
@@ -593,6 +621,7 @@ public class GoingUp extends ListenerAdapter {
 
                     if(buyableStocks.getFailCause() != null) {
                         createMsgAndErase(textChannel, buyableStocks.getFailCause());
+                        event.deferEdit().queue();
                         return;
                     }
 
