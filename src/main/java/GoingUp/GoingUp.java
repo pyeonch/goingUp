@@ -584,6 +584,7 @@ public class GoingUp extends ListenerAdapter {
 
                     textChannel.sendMessage("구매/판매할 기업을 선택해주세요.")
                             .addComponents(generateButtons("mainCompany_"+targetPlayerName+"_",generateCurrentCompany()))
+                            .addActionRow(Button.danger("main_return", "처음으로"))
                             .queue();
                 } else if (buttonId.startsWith("mainCompany_")) {
                     event.deferEdit().queue();
@@ -597,7 +598,8 @@ public class GoingUp extends ListenerAdapter {
                     textChannel.sendMessage("구매/판매 여부를 선택해주세요.")
                             .addActionRow(
                                     Button.primary("mainBuy_"+targetPlayerName+"_"+targetCompanyName,"구매"),
-                                    Button.primary("mainSell_"+targetPlayerName+"_"+targetCompanyName,"판매"))
+                                    Button.primary("mainSell_"+targetPlayerName+"_"+targetCompanyName,"판매"),
+                                    Button.danger("main_return", "처음으로"))
                             .queue();
                 } else if (buttonId.startsWith("mainBuy_")) {
                     String[] parts = buttonId.split("_",3);
@@ -680,6 +682,12 @@ public class GoingUp extends ListenerAdapter {
                             .build();
                     event.replyModal(modal).queue();
 
+                } else if (buttonId.equals("main_return")) {
+                    event.deferEdit().queue();
+                    initTextChannel(guild, event.getChannelId());
+                    textChannel.getIterableHistory().takeAsync(100).thenAccept(messages -> {
+                        adminMainBuyButtons(guild);
+                    });
                 }
             } else if (textChannel.getId().equals(TC_SYSTEM_ID)) {
 
