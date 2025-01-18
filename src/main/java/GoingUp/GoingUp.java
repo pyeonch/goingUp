@@ -968,6 +968,23 @@ public class GoingUp extends ListenerAdapter {
         Guild guild = textChannel.getGuild();
         List<ActionRow> actionRows = generateButtons("preBuyAdd_", generateCurrentCompany());
 
+        long currentTimestamp = Instant.now().getEpochSecond(); // 현재 유닉스 타임스탬프 (초 단위)
+        long twentyMinutesLater = currentTimestamp + 1200; // 20분 후의 유닉스 타임스탬프
+
+        TextChannel systemChannel = guild.getTextChannelById(TC_SYSTEM_ID);
+
+        textChannel.sendMessage(">>> " + currentRound + "라운드 회차 플레이 진행중...\n" +
+                "⏰ 종료 시각: <t:"+twentyMinutesLater+":T>\n"+
+                "⏰ <t:" + twentyMinutesLater + ":R> 종료").queue(message -> {
+            message.delete().queueAfter(1210, TimeUnit.SECONDS);
+        });
+
+        systemChannel.sendMessage(">>> " + currentRound + "라운드 회차 플레이 진행중...\n" +
+                "⏰ 종료 시각: <t:"+twentyMinutesLater+":T>\n"+
+                "⏰ <t:" + twentyMinutesLater + ":R> 종료").queue(/*message -> {
+            message.delete().queueAfter(1210, TimeUnit.SECONDS);
+        }*/);
+
 
         //추가 찌라시
         for(Players player : joinUsers.values()){
@@ -1053,16 +1070,7 @@ public class GoingUp extends ListenerAdapter {
         long currentTimestamp = Instant.now().getEpochSecond(); // 현재 유닉스 타임스탬프 (초 단위)
         long fiveMinutesLater = currentTimestamp + 300; // 5분 후의 유닉스 타임스탬프
 
-        textChannel.sendMessage(">>> " + currentRound + "라운드 휴식 진행중...\n" +
-                "<t:" + fiveMinutesLater + ":R> 종료").queue(message -> {
-            message.delete().queueAfter(310, TimeUnit.SECONDS);
-        });
-
         TextChannel systemChannel = guild.getTextChannelById(TC_SYSTEM_ID);
-        systemChannel.sendMessage(">>> " + currentRound + "라운드 휴식 진행중...\n" +
-                "<t:" + fiveMinutesLater + ":R> 종료").queue(message -> {
-            message.delete().queueAfter(310, TimeUnit.SECONDS);
-        });
 
         StringBuilder playerVal = new StringBuilder();
         for (Players player : joinUsers.values()) {
@@ -1070,6 +1078,27 @@ public class GoingUp extends ListenerAdapter {
             playerVal.append("\n" + player.getName() + ": ")
                     .append(getTotalAmount(player, currentRound));
         }
+
+        if(currentRound == 7) {
+            textChannel.sendMessage("모든 라운드가 종료되었습니다!");
+            systemChannel.sendMessage("모든 라운드가 종료되었습니다!");
+            loggingChannel(guild, "```" + currentRound + "라운드 보유 금액" +
+                    playerVal + "```");
+            return;
+        }
+
+        textChannel.sendMessage(">>> " + currentRound + "라운드 휴식 진행중...\n" +
+                "⏰ 종료 시각: <t:"+fiveMinutesLater+":T>\n"+
+                "⏰ <t:" + fiveMinutesLater + ":R> 종료").queue(message -> {
+            message.delete().queueAfter(310, TimeUnit.SECONDS);
+        });
+
+
+        systemChannel.sendMessage(">>> " + currentRound + "라운드 휴식 진행중...\n" +
+                "⏰ 종료 시각: <t:"+fiveMinutesLater+":T>\n"+
+                "⏰ <t:" + fiveMinutesLater + ":R> 종료").queue(/*message -> {
+            message.delete().queueAfter(310, TimeUnit.SECONDS);
+        }*/);
 
         loggingChannel(guild, "페이즈 전환: " + currentRound + "라운드 휴식 시작");
         loggingChannel(guild, "```" + currentRound + "라운드 보유 금액" +
