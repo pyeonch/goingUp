@@ -314,11 +314,16 @@ public class GoingUp extends ListenerAdapter {
                 currentRound = Integer.parseInt(newRound);
                 currentPhase = Phase.REST;
                 isRoundEnd = false;
+                displayAdminConsolePhase(guild);
+
+                bank.initPreBuyStart();
+                displayPreBuyQuantity(guild);
 
                 for (Players player : joinUsers.values()) {
                     modifyPlayerWallet(guild, player);
                 }
 
+                createMsgAndErase(textChannel, ">>> 라운드 강제변경완료, 3,6라운드 공개정보는 수동으로 공지해주세요.");
                 loggingChannel(guild, "라운드 강제 변경, " + newRound + "라운드로 변경");
             } catch (NumberFormatException e) {
                 createMsgAndErase(textChannel, ">>> 라운드 강제 변경 실패: 숫자를 입력하세요.");
