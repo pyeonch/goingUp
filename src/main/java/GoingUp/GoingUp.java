@@ -457,6 +457,13 @@ public class GoingUp extends ListenerAdapter {
 
         if (eventChannel instanceof TextChannel textChannel) {
             if (textChannel.getParentCategoryId().equals(CATE_WALLET_ID)) { //각자 개인 지갑
+                Role playerRole = guild.getRoleById(ROLE_PLAYER_ID);
+                if(!member.getRoles().contains(playerRole)) {
+                    event.deferEdit().queue();
+                    loggingChannel(guild, "### 위험: ["+member.getEffectiveName()+"] 미참여자가 플레이어의 지갑 버튼 클릭 시도\n<@&"+ROLE_ADMIN_ID+"> 확인이 필요합니다.");
+                    return;
+                }
+
                 //뉴스
                 if (buttonId.startsWith("news_")) {
                     Players player = joinUsers.get(member);
@@ -544,7 +551,7 @@ public class GoingUp extends ListenerAdapter {
 
                     if(player.getVal() < currentVal) {
                         createMsgAndErase(guild.getTextChannelById(player.getChannelId()), "잔액이 없습니다!");
-                        loggingChannel(guild, "위험: ["+player.getName()+"] 님 의 추가 찌라시 구매 실패, 잔액없음");
+                        loggingChannel(guild, "위험: ["+player.getName()+"] 님의 추가 찌라시 구매 실패, 잔액없음");
                         return;
                     }
 
@@ -768,6 +775,9 @@ public class GoingUp extends ListenerAdapter {
                                             // 에러 처리
                                             loggingChannel(guild, "### 오류: 개인 지갑 채널을 생성하는 데 실패했습니다.");
                                         });
+
+                                Role playerRole = textChannel.getGuild().getRoleById(ROLE_PLAYER_ID);
+                                assignRole(member, playerRole);
 
                                 createMsgAndErase(textChannel, "[" + member.getEffectiveName() + "]참가 완료!");
                                 loggingChannel(guild, "[" + member.getEffectiveName() + "] 참가 완료");
