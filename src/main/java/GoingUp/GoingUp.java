@@ -316,6 +316,8 @@ public class GoingUp extends ListenerAdapter {
                 isRoundEnd = false;
                 displayAdminConsolePhase(guild);
 
+                initTextChannel(textChannel.getGuild(), TC_CHART_ID);
+
                 bank.initPreBuyStart();
                 displayPreBuyQuantity(guild);
 
@@ -323,7 +325,21 @@ public class GoingUp extends ListenerAdapter {
                     modifyPlayerWallet(guild, player);
                 }
 
-                createMsgAndErase(textChannel, ">>> 라운드 강제변경완료, 3,6라운드 공개정보는 수동으로 공지해주세요.");
+                TextChannel chatChannel = textChannel.getGuild().getTextChannelById(TC_CHART_ID);
+
+                if(currentRound == 1) {
+                    String path = imagePath + "/3.주가변동판/0회차.png";
+                    sendImgFile(chatChannel, path);
+                }
+                if(currentRound > 1) {
+                    int targetRound = currentRound - 1;
+                    String path1 = imagePath + "/3.주가변동판/" + targetRound + "회차.png";
+                    String path2 = imagePath + "/3.주가변동판/" + targetRound + "회차 주가등락.png";
+                    sendImgFile(chatChannel, path1);
+                    sendImgFile(chatChannel, path2);
+                }
+
+                createMsgAndErase(textChannel, ">>> 라운드 강제변경완료");
                 loggingChannel(guild, "라운드 강제 변경, " + newRound + "라운드로 변경");
             } catch (NumberFormatException e) {
                 createMsgAndErase(textChannel, ">>> 라운드 강제 변경 실패: 숫자를 입력하세요.");
@@ -338,10 +354,13 @@ public class GoingUp extends ListenerAdapter {
                 Button.secondary("join_player", "플레이어 모집"),
                 Button.success("game_start", "게임 시작")
         ).addActionRow(
-                Button.primary("start_market", "장오픈"),
-                Button.primary("close_market", "주식변동"),
+                Button.primary("start_market", "회차 플레이"),
+                Button.primary("close_market", "장마감"),
                 Button.primary("select_news", "신문기사 선택"),
                 Button.primary("rest", "휴식")
+        ).addActionRow(
+                Button.success("public_news_3", "3회차 공개정보"),
+                Button.success("public_news_6", "6회차 공개정보")
         ).addActionRow(
                 Button.success("call_player", "전체소집"),
                 Button.secondary("manage_round", "라운드 강제 변경")
@@ -736,6 +755,7 @@ public class GoingUp extends ListenerAdapter {
                                 category.createTextChannel(member.getEffectiveName()) // 사용자 이름으로 텍스트 채널 생성
                                         .addPermissionOverride(member, EnumSet.of(Permission.VIEW_CHANNEL, Permission.MESSAGE_SEND), null) // 사용자에게 보기 및 쓰기 권한
                                         .addPermissionOverride(adminRole, EnumSet.of(Permission.VIEW_CHANNEL, Permission.MESSAGE_SEND), null) // 운영자 역할에 권한 부여
+                                        .addPermissionOverride(spectatorRole, EnumSet.of(Permission.VIEW_CHANNEL), null)
                                         .addPermissionOverride(event.getGuild().getPublicRole(), null, EnumSet.of(Permission.VIEW_CHANNEL)) // 다른 사용자 접근 금지
                                         .queue(channel -> {
                                             // 채널 생성 성공 시 ID를 Players 객체에 저장
@@ -947,6 +967,14 @@ public class GoingUp extends ListenerAdapter {
                 event.deferEdit().queue();
                 rest(textChannel);
                 break;
+            case "public_news_3":
+                event.deferEdit().queue();
+                publicNews(textChannel, 3);
+                break;
+            case  "public_news_6":
+                event.deferEdit().queue();
+                publicNews(textChannel, 6);
+                break;
             case "call_player":
                 event.deferEdit().queue();
                 movePlayerToMainChannel(textChannel);
@@ -1122,8 +1150,8 @@ public class GoingUp extends ListenerAdapter {
         }
 
         if(currentRound == 7) {
-            textChannel.sendMessage("모든 라운드가 종료되었습니다!");
-            systemChannel.sendMessage("모든 라운드가 종료되었습니다!");
+            textChannel.sendMessage("모든 라운드가 종료되었습니다!").queue();
+            systemChannel.sendMessage("모든 라운드가 종료되었습니다!").queue();
             loggingChannel(guild, "```" + currentRound + "라운드 보유 금액" +
                     playerVal + "```");
             return;
@@ -1153,14 +1181,13 @@ public class GoingUp extends ListenerAdapter {
 
         bank.initPreBuyStart();
         displayPreBuyQuantity(guild);
+    }
 
-        TextChannel chartChannel = guild.getTextChannelById(TC_CHART_ID);
-        if (currentRound == 3 || currentRound == 6) {
-            String path = imagePath + "/" + currentRound + "공개정보.png";
+    private void publicNews(TextChannel channel, int round) {
+        TextChannel chartChannel = channel.getGuild().getTextChannelById(TC_CHART_ID);
 
-            sendImgFile(chartChannel, path);
-        }
-
+        String path = imagePath + "/" + round + "공개정보.png";
+        sendImgFile(chartChannel, path);
     }
 
     private void movePlayerToMainChannel(TextChannel channel) {
@@ -1297,6 +1324,7 @@ public class GoingUp extends ListenerAdapter {
             initTextChannel(guild, TC_ADMIN_PRE_BUY_ID);
             initTextChannel(guild, TC_ADMIN_MAIN_BUY_ID);
             initTextChannel(guild, TC_ADMIN_CONSOLE_ID);
+            initTextChannel(guild, TC_LOG_ID);
 
             TextChannel adminConsoleChannel = guild.getTextChannelById(TC_ADMIN_CONSOLE_ID);
             adminConsoleChannel.getIterableHistory().takeAsync(100).thenAccept(messages -> {
@@ -1309,7 +1337,6 @@ public class GoingUp extends ListenerAdapter {
             joinUsers.clear();
 
             message.editMessage(">>> 게임 초기화 완료!").queue();
-            loggingChannel(guild, "게임 초기화 완료");
         });
     }
 
