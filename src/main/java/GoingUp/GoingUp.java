@@ -1049,21 +1049,21 @@ public class GoingUp extends ListenerAdapter {
         List<ActionRow> actionRows = generateButtons("preBuyAdd_", generateCurrentCompany());
 
         long currentTimestamp = Instant.now().getEpochSecond(); // 현재 유닉스 타임스탬프 (초 단위)
-        long twentyMinutesLater = currentTimestamp + 1200; // 20분 후의 유닉스 타임스탬프
+        long twentyMinutesLater = currentTimestamp + TIME_ROUND; // 20분 후의 유닉스 타임스탬프
 
         TextChannel systemChannel = guild.getTextChannelById(TC_SYSTEM_ID);
 
         textChannel.sendMessage(">>> " + currentRound + "라운드 회차 플레이 진행중...\n" +
                 "⏰ 종료 시각: <t:"+twentyMinutesLater+":T>\n"+
                 "⏰ <t:" + twentyMinutesLater + ":R> 종료").queue(message -> {
-            message.delete().queueAfter(1210, TimeUnit.SECONDS);
+            message.editMessage(">>> " + currentRound + "라운드 완료").queueAfter(TIME_ROUND, TimeUnit.SECONDS);
         });
 
         systemChannel.sendMessage(">>> " + currentRound + "라운드 회차 플레이 진행중...\n" +
                 "⏰ 종료 시각: <t:"+twentyMinutesLater+":T>\n"+
-                "⏰ <t:" + twentyMinutesLater + ":R> 종료").queue(/*message -> {
-            message.delete().queueAfter(1210, TimeUnit.SECONDS);
-        }*/);
+                "⏰ <t:" + twentyMinutesLater + ":R> 종료").queue(message -> {
+            message.editMessage(">>> " + currentRound + "라운드 완료").queueAfter(TIME_ROUND, TimeUnit.SECONDS);
+        });
 
 
         //추가 찌라시
@@ -1073,7 +1073,7 @@ public class GoingUp extends ListenerAdapter {
                     "횟수당 ["+preBuyAddPrice+"]원이 차감됩니다.")
                     .addComponents(actionRows)
                     .queue(message -> {
-                        message.delete().queueAfter(305, TimeUnit.SECONDS);
+                        message.delete().queueAfter(TIME_ROUND + 10, TimeUnit.SECONDS);
                     });
         }
     }
@@ -1148,7 +1148,7 @@ public class GoingUp extends ListenerAdapter {
         Guild guild = textChannel.getGuild();
 
         long currentTimestamp = Instant.now().getEpochSecond(); // 현재 유닉스 타임스탬프 (초 단위)
-        long fiveMinutesLater = currentTimestamp + 300; // 5분 후의 유닉스 타임스탬프
+        long fiveMinutesLater = currentTimestamp + TIME_REST; // 5분 후의 유닉스 타임스탬프
 
         TextChannel systemChannel = guild.getTextChannelById(TC_SYSTEM_ID);
 
@@ -1170,15 +1170,15 @@ public class GoingUp extends ListenerAdapter {
         textChannel.sendMessage(">>> " + currentRound + "라운드 휴식 진행중...\n" +
                 "⏰ 종료 시각: <t:"+fiveMinutesLater+":T>\n"+
                 "⏰ <t:" + fiveMinutesLater + ":R> 종료").queue(message -> {
-            message.delete().queueAfter(310, TimeUnit.SECONDS);
+            message.editMessage(">>> " + currentRound + "라운드 휴식 완료").queueAfter(TIME_REST, TimeUnit.SECONDS);
         });
 
 
         systemChannel.sendMessage(">>> " + currentRound + "라운드 휴식 진행중...\n" +
                 "⏰ 종료 시각: <t:"+fiveMinutesLater+":T>\n"+
-                "⏰ <t:" + fiveMinutesLater + ":R> 종료").queue(/*message -> {
-            message.delete().queueAfter(310, TimeUnit.SECONDS);
-        }*/);
+                "⏰ <t:" + fiveMinutesLater + ":R> 종료").queue(message -> {
+            message.editMessage(">>> " + currentRound + "라운드 휴식 완료").queueAfter(TIME_REST, TimeUnit.SECONDS);
+        });
 
         loggingChannel(guild, "페이즈 전환: " + currentRound + "라운드 휴식 시작");
         loggingChannel(guild, "```" + currentRound + "라운드 보유 금액" +

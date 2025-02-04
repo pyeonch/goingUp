@@ -34,6 +34,9 @@ public class Consts {
     final static String PRE_BUY_PRICE_FIRSTHALF_ADDON = "25000";
     final static String PRE_BUY_PRICE_SECONDHALF_ADDON = "35000";
 
+    final static int TIME_ROUND = 1200;
+    final static int TIME_REST = 300;
+
     @AllArgsConstructor
     public enum BootPath {
         LOCAL, DOCKER;
