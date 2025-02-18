@@ -113,6 +113,12 @@ public class GoingUp extends ListenerAdapter {
             Players player = joinUsers.values().stream().filter(m -> m.getName().equals(showingPlayer)).findFirst().get();
             TextChannel walletChannel = guild.getTextChannelById(player.getChannelId());
 
+            if(player.getSelectionCount() >= 2) {
+                createMsgAndErase(textChannel, ">>> 찌라시 버튼 생성 실패: 해당 플레이어는 이미 2회 선택하였습니다.");
+                loggingChannel(guild,"위험: 찌라시 버튼 생성 실패, 이미 2회 선택 완료");
+                return;
+            }
+
             String priority = bank.getNextPriority().equals("") ? "\n 혹은 우선권을 구매하세요!" : "";
 
             //버튼생성,
@@ -501,11 +507,11 @@ public class GoingUp extends ListenerAdapter {
                     Players player = joinUsers.get(member);
                     int currentVal = Integer.parseInt(initBuyPrice);
 
-//                    if (player.getSelectionCount() == 2) {
-//                        event.reply("이미 선택이 완료되었습니다.").queue();
-//                        buttonDisableWithSelectionCount(event, player, buttonId);
-//                        return;
-//                    }
+                    if (player.getSelectionCount() == 2) {
+                        event.deferEdit().queue();
+                        editMsgAndErase(event.getMessage(), "이미 선택이 완료되었습니다.");
+                        return;
+                    }
 
                     if(player.getVal() < currentVal) {
                         event.deferEdit().queue();
@@ -593,7 +599,7 @@ public class GoingUp extends ListenerAdapter {
                     displayPreBuyQuantity(guild);
 
                     loggingChannel(guild, "[" + player.getName() + "] 님 우선권 구매");
-                    guild.getTextChannelById(player.getChannelId()).sendMessage( ">>> 우선권 구매 완료!");
+                    guild.getTextChannelById(player.getChannelId()).sendMessage( ">>> 우선권 구매 완료!").queue();
 
                 }
             } else if (textChannel.getId().equals(TC_ADMIN_CONSOLE_ID)) {
