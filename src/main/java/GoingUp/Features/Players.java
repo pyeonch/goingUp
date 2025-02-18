@@ -31,6 +31,7 @@ public class Players {
     private int stock_death = 0; //애프터데스상조
     private int stock_build = 0; //잘살아건설
 
+    @Setter
     private String init_TId = ""; //기사선택, 찌라시선택 등 임시 텍스트 아이디
     @Setter
     private String wallet_TId = ""; //지갑 현황 텍스트 아이디

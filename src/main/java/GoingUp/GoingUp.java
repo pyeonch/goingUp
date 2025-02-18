@@ -49,6 +49,8 @@ public class GoingUp extends ListenerAdapter {
     public String ADMIN_CONSOLE_STATUS_MESSAGE_ID = ""; //어드민콘솔에 페이즈 보여주는 채팅
     public String ADMIN_PRE_BUY_MESSAGE_ID = ""; //찌라시 구매 현행판 메세지
     public String ADMIN_MAIN_BUY_PLAYER_WALLET_MESSAGE_ID = ""; //구매-판매 채널 플레이어 지갑 현행판 메세지
+    public String MAIN_PLAY_TIMER_SYSTEM = "";
+    public String MAIN_PLAY_TIMER_ADMIN = "";
     public Bank bank = null;
 
     public String initBuyPrice = "";
@@ -915,6 +917,19 @@ public class GoingUp extends ListenerAdapter {
         });
     }
 
+    private void deletePlayerInitTId(Guild guild, Players player) {
+        TextChannel playerChannel = guild.getTextChannelById(player.getChannelId());
+
+        if (playerChannel == null) {
+            loggingChannel(guild, "### 오류: [" + player.getName() + "]채널 미존재");
+            return;
+        }
+
+        playerChannel.retrieveMessageById(player.getInit_TId()).queue(message -> {
+            message.delete().queue();
+        }, failure -> {});
+    }
+
     //지갑, 자산 연산후 스트링 반환 메소드
     private String generatePlayerWalletMessage(Players player) {
         int targetRound = currentRound - 1;
@@ -1073,14 +1088,16 @@ public class GoingUp extends ListenerAdapter {
         TextChannel systemChannel = guild.getTextChannelById(TC_SYSTEM_ID);
 
         textChannel.sendMessage(">>> " + currentRound + "라운드 회차 플레이 진행중...\n" +
-                "⏰ 종료 시각: <t:"+twentyMinutesLater+":T>\n"+
+                "⏰ 종료 시각: <t:" + twentyMinutesLater + ":T>\n" +
                 "⏰ <t:" + twentyMinutesLater + ":R> 종료").queue(message -> {
+            MAIN_PLAY_TIMER_ADMIN = message.getId();
             message.editMessage(">>> " + currentRound + "라운드 완료").queueAfter(TIME_ROUND, TimeUnit.SECONDS);
         });
 
         systemChannel.sendMessage(">>> " + currentRound + "라운드 회차 플레이 진행중...\n" +
-                "⏰ 종료 시각: <t:"+twentyMinutesLater+":T>\n"+
+                "⏰ 종료 시각: <t:" + twentyMinutesLater + ":T>\n" +
                 "⏰ <t:" + twentyMinutesLater + ":R> 종료").queue(message -> {
+            MAIN_PLAY_TIMER_SYSTEM = message.getId();
             message.editMessage(">>> " + currentRound + "라운드 완료").queueAfter(TIME_ROUND, TimeUnit.SECONDS);
         });
 
@@ -1092,6 +1109,7 @@ public class GoingUp extends ListenerAdapter {
                     "횟수당 ["+preBuyAddPrice+"]원이 차감됩니다.")
                     .addComponents(actionRows)
                     .queue(message -> {
+                        player.setInit_TId(message.getId());
                         message.delete().queueAfter(TIME_ROUND + 10, TimeUnit.SECONDS);
                     });
         }
@@ -1103,14 +1121,23 @@ public class GoingUp extends ListenerAdapter {
     //장 마감 페이즈
     private void closeMarket(TextChannel textChannel) {
         TextChannel chatChannel = textChannel.getGuild().getTextChannelById(TC_CHART_ID);
+        TextChannel systemChannel = textChannel.getGuild().getTextChannelById(TC_SYSTEM_ID);
         currentPhase = Phase.CLOSED;
         displayAdminConsolePhase(textChannel.getGuild());
         isRoundEnd = true;
 
         initTextChannel(textChannel.getGuild(), TC_CHART_ID);
 
+        textChannel.retrieveMessageById(MAIN_PLAY_TIMER_ADMIN).queue(message -> {
+            message.editMessage(">>> " + currentRound + "라운드 완료").queue();
+        });
+        systemChannel.retrieveMessageById(MAIN_PLAY_TIMER_SYSTEM).queue(message -> {
+            message.editMessage(">>> " + currentRound + "라운드 완료").queue();
+        });
+
         for (Players player : joinUsers.values()) {
             modifyPlayerWallet(textChannel.getGuild(), player);
+            deletePlayerInitTId(textChannel.getGuild(), player);
         }
 
 
