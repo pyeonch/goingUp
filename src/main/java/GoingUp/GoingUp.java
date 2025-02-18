@@ -1124,6 +1124,11 @@ public class GoingUp extends ListenerAdapter {
     private void closeMarket(TextChannel textChannel) {
         TextChannel chatChannel = textChannel.getGuild().getTextChannelById(TC_CHART_ID);
         TextChannel systemChannel = textChannel.getGuild().getTextChannelById(TC_SYSTEM_ID);
+
+        if(currentPhase != Phase.OPEN) {
+            createMsgAndErase(textChannel, "회차 플레이 페이즈가 아닙니다");
+            return;
+        }
         currentPhase = Phase.CLOSED;
         displayAdminConsolePhase(textChannel.getGuild());
         isRoundEnd = true;
