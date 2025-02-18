@@ -418,7 +418,7 @@ public class GoingUp extends ListenerAdapter {
         String nextPri = bank.getNextPriority().isEmpty() ? "구매가능" : bank.getNextPriority();
 
         StringBuilder stringBuilder = new StringBuilder();
-        stringBuilder.append("``` 현재 라운드: " + currentRound + ", ");
+        stringBuilder.append("```현재 라운드: " + currentRound+"\n");
         if (currentRound != 1) {
             stringBuilder.append("[" + bank.getCurrentPriority() + "]님부터 시작");
         }
@@ -581,7 +581,7 @@ public class GoingUp extends ListenerAdapter {
                     displayPreBuyQuantity(guild);
 
                     loggingChannel(guild, "[" + player.getName() + "] 님 우선권 구매");
-                    createMsgAndErase(guild.getTextChannelById(player.getChannelId()), ">>> 우선권 구매 완료!");
+                    guild.getTextChannelById(player.getChannelId()).sendMessage( ">>> 우선권 구매 완료!");
 
                 }
             } else if (textChannel.getId().equals(TC_ADMIN_CONSOLE_ID)) {
@@ -1076,6 +1076,8 @@ public class GoingUp extends ListenerAdapter {
                         message.delete().queueAfter(TIME_ROUND + 10, TimeUnit.SECONDS);
                     });
         }
+
+        loggingChannel(textChannel.getGuild(), ">>> 페이즈 전환: "+currentRound+"라운드 회차 플레이 시작");
     }
 
 
@@ -1099,6 +1101,8 @@ public class GoingUp extends ListenerAdapter {
         //fixme 이 이미지파일이랑 타이밍 이슈나는지 확인필요
         sendImgFile(chatChannel, path1);
         sendImgFile(chatChannel, path2);
+
+        loggingChannel(textChannel.getGuild(), ">>> 페이즈 전환: "+currentRound+"라운드 장 마감");
     }
 
     //뉴스선택 페이즈
@@ -1117,7 +1121,7 @@ public class GoingUp extends ListenerAdapter {
         currentPhase = Phase.NEWS;
         displayAdminConsolePhase(guild);
 
-        loggingChannel(guild, "페이즈 전환: " + currentRound + "라운드 기사선택 시작");
+        loggingChannel(guild, ">>> 페이즈 전환: " + currentRound + "라운드 기사선택 시작");
     }
 
     private List<String> generateCurrentCompany() {
@@ -1180,7 +1184,7 @@ public class GoingUp extends ListenerAdapter {
             message.editMessage(">>> " + currentRound + "라운드 휴식 완료").queueAfter(TIME_REST, TimeUnit.SECONDS);
         });
 
-        loggingChannel(guild, "페이즈 전환: " + currentRound + "라운드 휴식 시작");
+        loggingChannel(guild, ">>> 페이즈 전환: " + currentRound + "라운드 휴식 시작");
         loggingChannel(guild, "```" + currentRound + "라운드 보유 금액" +
                 playerVal + "```");
 
