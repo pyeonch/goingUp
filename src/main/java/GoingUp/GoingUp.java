@@ -1352,6 +1352,7 @@ public class GoingUp extends ListenerAdapter {
             initTextChannel(guild, TC_ADMIN_MAIN_BUY_ID);
             initTextChannel(guild, TC_ADMIN_CONSOLE_ID);
             initTextChannel(guild, TC_LOG_ID);
+            initTextChannel(guild, TC_FREE_CHAT_ID);
 
             TextChannel adminConsoleChannel = guild.getTextChannelById(TC_ADMIN_CONSOLE_ID);
             adminConsoleChannel.getIterableHistory().takeAsync(100).thenAccept(messages -> {
