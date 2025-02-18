@@ -28,10 +28,9 @@ import net.dv8tion.jda.api.utils.FileUpload;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.File;
+import java.text.DecimalFormat;
 import java.time.Instant;
 import java.util.*;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -938,10 +937,11 @@ public class GoingUp extends ListenerAdapter {
         }
 
         // 각 주식별로 플레이어가 보유한 주식 수와 현재 라운드의 주가를 곱한 총 금액 계산
-        int totalAmount = getTotalAmount(player, targetRound);
+        String totalAmount = getTotalAmount(player, targetRound);
+        DecimalFormat formatter = new DecimalFormat("#,###");
 
         return "```[" + player.getName() + "] 님의 총 금액은 [" + totalAmount + "]원 입니다.\n" +
-                "당신의 잔액은 [" + player.getVal() + "]원 입니다. \n\n" +
+                "당신의 잔액은 [" + formatter.format(player.getVal()) + "]원 입니다. \n\n" +
                 "시안테마파크: " + player.getStock_park() + "주\n" +
                 "돈내놔캐피탈: " + player.getStock_capital() + "주\n" +
                 "막달려자동차: " + player.getStock_MCar() + "주\n" +
@@ -954,7 +954,7 @@ public class GoingUp extends ListenerAdapter {
                 "잘살아건설: " + player.getStock_build() + "주```";
     }
 
-    private static int getTotalAmount(Players player, int targetRound) {
+    private static String getTotalAmount(Players player, int targetRound) {
         int totalAmount = player.getVal();
 
         totalAmount += player.getStock_park() * PARK.getVal()[targetRound];
@@ -967,7 +967,9 @@ public class GoingUp extends ListenerAdapter {
         totalAmount += player.getStock_pharmacy() * PHARMACY.getVal()[targetRound];
         totalAmount += player.getStock_death() * DEATH.getVal()[targetRound];
         totalAmount += player.getStock_build() * BUILD.getVal()[targetRound];
-        return totalAmount;
+
+        DecimalFormat formatter = new DecimalFormat("#,###");
+        return formatter.format(totalAmount);
     }
 
     //운영자콘솔 버튼 이벤트
@@ -1205,7 +1207,8 @@ public class GoingUp extends ListenerAdapter {
         StringBuilder playerVal = new StringBuilder();
         for (Players player : joinUsers.values()) {
             player.initSelection();
-            playerVal.append("\n" + player.getName() + ": ")
+            playerVal.append("\n")
+                    .append(player.getName()).append(": ")
                     .append(getTotalAmount(player, currentRound));
         }
 
