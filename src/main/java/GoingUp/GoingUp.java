@@ -47,7 +47,8 @@ public class GoingUp extends ListenerAdapter {
     public boolean isRoundEnd = false;
     public Phase currentPhase = Phase.READY;
     public String ADMIN_CONSOLE_STATUS_MESSAGE_ID = ""; //어드민콘솔에 페이즈 보여주는 채팅
-    public String ADMIN_PRE_BUY_MESSAGE_ID = "";
+    public String ADMIN_PRE_BUY_MESSAGE_ID = ""; //찌라시 구매 현행판 메세지
+    public String ADMIN_MAIN_BUY_PLAYER_WALLET_MESSAGE_ID = ""; //구매-판매 채널 플레이어 지갑 현행판 메세지
     public Bank bank = null;
 
     public String initBuyPrice = "";
@@ -215,15 +216,20 @@ public class GoingUp extends ListenerAdapter {
 
             modifyPlayerWallet(guild, player);
 
-            textChannel.sendMessage("["+targetCompanyName+"]주 "+mainBuyValInput+"개 구매 완료!\n지갑을 확인해주세요.").queue();
+            textChannel.sendMessage(">>> ["+targetCompanyName+"]주 "+mainBuyValInput+"개 구매 완료!").queue();
 
-            ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
-            scheduler.schedule(() -> {
-                initTextChannel(guild, event.getChannelId());
-                textChannel.getIterableHistory().takeAsync(100).thenAccept(messages -> {
-                    adminMainBuyButtons(guild);
-                });
-            },3,TimeUnit.SECONDS);
+            textChannel.retrieveMessageById(ADMIN_MAIN_BUY_PLAYER_WALLET_MESSAGE_ID).queue(message -> {
+                message.editMessage(generatePlayerWalletMessage(player)).queue();
+            });
+
+
+//            ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
+//            scheduler.schedule(() -> {
+//                initTextChannel(guild, event.getChannelId());
+//                textChannel.getIterableHistory().takeAsync(100).thenAccept(messages -> {
+//                    adminMainBuyButtons(guild);
+//                });
+//            },3,TimeUnit.SECONDS);
 
         }
 
@@ -285,15 +291,19 @@ public class GoingUp extends ListenerAdapter {
 
             modifyPlayerWallet(guild, player);
 
-            textChannel.sendMessage("["+targetCompanyName+"]주 "+mainSellValInput+"개 판매 완료!\n지갑을 확인해주세요.").queue();
+            textChannel.sendMessage(">>> ["+targetCompanyName+"]주 "+mainSellValInput+"개 판매 완료!").queue();
 
-            ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
-            scheduler.schedule(() -> {
-                initTextChannel(guild, event.getChannelId());
-                textChannel.getIterableHistory().takeAsync(100).thenAccept(messages -> {
-                    adminMainBuyButtons(guild);
-                });
-            },3,TimeUnit.SECONDS);
+            textChannel.retrieveMessageById(ADMIN_MAIN_BUY_PLAYER_WALLET_MESSAGE_ID).queue(message -> {
+                message.editMessage(generatePlayerWalletMessage(player)).queue();
+            });
+
+//            ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
+//            scheduler.schedule(() -> {
+//                initTextChannel(guild, event.getChannelId());
+//                textChannel.getIterableHistory().takeAsync(100).thenAccept(messages -> {
+//                    adminMainBuyButtons(guild);
+//                });
+//            },3,TimeUnit.SECONDS);
 
         }
 
@@ -608,8 +618,9 @@ public class GoingUp extends ListenerAdapter {
                     String targetPlayerName = buttonId.replace("mainPlayer_", "");
                     Players targetPlayer = joinUsers.values().stream().filter(m -> m.getName().equals(targetPlayerName)).findFirst().get();
 
-                    textChannel.sendMessage(generatePlayerWalletMessage(targetPlayer)).queue();
-                    //todo 몇주 구매가능?
+                    textChannel.sendMessage(generatePlayerWalletMessage(targetPlayer)).queue(message -> {
+                        ADMIN_MAIN_BUY_PLAYER_WALLET_MESSAGE_ID = message.getId();
+                    });
 
                     event.getMessage().editMessageComponents(disableAllButtons(event.getMessage().getActionRows())).queue();
 
@@ -624,13 +635,14 @@ public class GoingUp extends ListenerAdapter {
                     String targetPlayerName = parts[1];
                     String targetCompanyName = parts[2];
 
-                    event.getMessage().editMessageComponents(disableAllButtons(event.getMessage().getActionRows())).queue();
+                    disableOneButton(event.getMessage().getActionRows(),buttonId,event);
 
-                    textChannel.sendMessage("구매/판매 여부를 선택해주세요.")
+                    textChannel.sendMessage("**"+targetCompanyName+"**: 구매/판매 여부를 선택해주세요.")
                             .addActionRow(
                                     Button.primary("mainBuy_"+targetPlayerName+"_"+targetCompanyName,"구매"),
-                                    Button.primary("mainSell_"+targetPlayerName+"_"+targetCompanyName,"판매"),
-                                    Button.danger("main_return", "처음으로"))
+                                    Button.primary("mainSell_"+targetPlayerName+"_"+targetCompanyName,"판매")
+//                                    Button.danger("main_return", "처음으로")
+                            )
                             .queue();
                 } else if (buttonId.startsWith("mainBuy_")) {
                     String[] parts = buttonId.split("_",3);
@@ -668,7 +680,6 @@ public class GoingUp extends ListenerAdapter {
                     event.replyModal(modal).queue();
 
                 } else if (buttonId.startsWith("mainSell_")) {
-                    event.deferEdit().queue();
                     String[] parts = buttonId.split("_",3);
                     String targetPlayerName = parts[1];
                     String targetCompanyName = parts[2];
