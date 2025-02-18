@@ -284,6 +284,8 @@ public class GoingUp extends ListenerAdapter {
 
                 player.minusStock(mainSellValInput, stock);
                 player.plusVal(stockPrice * mainSellValInput);
+
+                loggingChannel(guild,"["+player.getName()+"] 님 주식 판매: "+stock.getName()+", "+mainSellValInput+"주");
             } else {
                 createMsgAndErase(textChannel, "회사가 없습니다.");
                 return;
