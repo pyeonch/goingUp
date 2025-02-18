@@ -1078,6 +1078,11 @@ public class GoingUp extends ListenerAdapter {
 
     //장 시작
     private void startMarket(TextChannel textChannel) {
+        if(currentPhase == Phase.READY) {
+            createMsgAndErase(textChannel, "게임이 진행중이지 않습니다.");
+            return;
+        }
+
         currentPhase = Phase.OPEN;
         displayAdminConsolePhase(textChannel.getGuild());
         String preBuyAddPrice =  currentRound < 4 ? PRE_BUY_PRICE_FIRSTHALF_ADDON : PRE_BUY_PRICE_SECONDHALF_ADDON;
@@ -1125,6 +1130,10 @@ public class GoingUp extends ListenerAdapter {
         TextChannel chatChannel = textChannel.getGuild().getTextChannelById(TC_CHART_ID);
         TextChannel systemChannel = textChannel.getGuild().getTextChannelById(TC_SYSTEM_ID);
 
+        if(currentPhase == Phase.READY) {
+            createMsgAndErase(textChannel, "게임이 진행중이지 않습니다.");
+            return;
+        }
         if(currentPhase != Phase.OPEN) {
             createMsgAndErase(textChannel, "회차 플레이 페이즈가 아닙니다");
             return;
@@ -1161,6 +1170,11 @@ public class GoingUp extends ListenerAdapter {
     //뉴스선택 페이즈
     private void selectNews(TextChannel textChannel) {
         Guild guild = textChannel.getGuild();
+
+        if(currentPhase == Phase.READY) {
+            createMsgAndErase(textChannel, "게임이 진행중이지 않습니다.");
+            return;
+        }
 
         for (Players player : joinUsers.values()) {
             player.initSelection();
@@ -1203,6 +1217,11 @@ public class GoingUp extends ListenerAdapter {
     //휴식 페이즈
     private void rest(TextChannel textChannel) {
         Guild guild = textChannel.getGuild();
+
+        if(currentPhase == Phase.READY) {
+            createMsgAndErase(textChannel, "게임이 진행중이지 않습니다.");
+            return;
+        }
 
         long currentTimestamp = Instant.now().getEpochSecond(); // 현재 유닉스 타임스탬프 (초 단위)
         long fiveMinutesLater = currentTimestamp + TIME_REST; // 5분 후의 유닉스 타임스탬프
