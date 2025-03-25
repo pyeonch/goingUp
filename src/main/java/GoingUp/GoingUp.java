@@ -1044,7 +1044,7 @@ public class GoingUp extends ListenerAdapter {
                 break;
             case "reset_game":
                 event.deferEdit().queue();
-                event.getChannel().sendMessage("주의: 로그 채널 제외 모든 메세지가 초기화됩니다.\n" +
+                event.getChannel().sendMessage("주의: 모든 메세지가 초기화됩니다.\n" +
                                 "개인지갑의 개인채널들, 주가차트 등 모든 정보가 삭제되므로\n" +
                                 " 모든 게임이 종료되었을 때 초기화 하는걸 권장드립니다.\n" +
                                 "\n### 정말 초기화하시겠습니까? (10초 뒤 이 메세지는 사라집니다.)")
